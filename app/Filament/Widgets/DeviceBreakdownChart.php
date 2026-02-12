@@ -2,35 +2,30 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\ViewerRequest;
+
+use App\Services\DashboardAnalytics;
 use Filament\Widgets\ChartWidget;
 
 class DeviceBreakdownChart extends ChartWidget
 {
-    protected static ?string $heading = 'Device Type (Last 12 Hours)';
-    protected static ?int $sort = 12;
-    protected static ?string $pollingInterval = '30s';
+    protected static ?string $heading = 'Device Breakdown (Last 12 Hours)';
+    protected static ?int $sort = 22;
+    protected static ?string $pollingInterval = '60s';
 
     protected function getData(): array
-    {
-        $rows = ViewerRequest::query()
-            ->where('requested_at', '>=', now()->subHours(12))
-            ->where('allowed', true)
-            ->selectRaw('device, COUNT(DISTINCT ip) as c')
-            ->groupBy('device')
-            ->orderByDesc('c')
-            ->get();
+{
+    $data = app(DashboardAnalytics::class)->lastHours(12);
 
-        return [
-            'labels' => $rows->pluck('device')->all(),
-            'datasets' => [
-                [
-                    'label' => 'Unique Viewers IP',
-                    'data' => $rows->pluck('c')->map(fn ($v) => (int) $v)->all(),
-                ],
-            ],
-        ];
-    }
+    $rows = collect($data['device']);
+
+    return [
+        'labels' => $rows->pluck('label')->all(),
+        'datasets' => [[
+            'label' => 'Requests',
+            'data' => $rows->pluck('c')->all(),
+        ]],
+    ];
+}
 
     protected function getType(): string
     {

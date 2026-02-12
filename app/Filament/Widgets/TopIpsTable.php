@@ -14,7 +14,7 @@ class TopIpsTable extends BaseWidget
 {
     protected static ?string $heading = 'Top IPs (Last 12 Hours)';
     protected static ?int $sort = 30;
-    protected static ?string $pollingInterval = '30s';
+    protected static ?string $pollingInterval = '120s';
 
     protected int|string|array $columnSpan = 'md';
 
@@ -53,6 +53,7 @@ class TopIpsTable extends BaseWidget
                     ->boolean()
                     ->sortable(),
             ])
+            ->paginated(false)
             ->actions([
                 Tables\Actions\Action::make('block')
                     ->label('Block')

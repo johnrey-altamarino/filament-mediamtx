@@ -1,8 +1,9 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
+use App\Console\Commands\PruneActivityLog;
+use App\Console\Commands\PruneViewerRequests;
+use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+
+Schedule::command(PruneViewerRequests::class)->daily();
+Schedule::command(PruneActivityLog::class)->daily();
