@@ -25,7 +25,10 @@ class ReadTokenController extends Controller
 
         // 1) Blocked IP gate
         if ($ip && BlockedIp::where('ip', $ip)->exists()) {
-            $this->logViewerRequest($request, $ip, $path, false, 'blocked_ip');
+
+            if ($this->shouldLogViewerRequest($request, $ip, $path)) {
+                $this->logViewerRequest($request, $ip, $path, false, 'blocked_ip');
+            }
 
             activity('security')
                 ->withProperties(['ip' => $ip, 'referer' => $referer, 'path' => $path])
@@ -36,7 +39,9 @@ class ReadTokenController extends Controller
 
         // 2) Strict referer gate
         if ($referer === '' || ! $this->refererAllowed($referer)) {
-            $this->logViewerRequest($request, $ip, $path, false, 'bad_referer');
+            if ($this->shouldLogViewerRequest($request, $ip, $path)) {
+                $this->logViewerRequest($request, $ip, $path, false, 'bad_referer');
+            }
 
             activity('security')
                 ->withProperties(['ip' => $ip, 'referer' => $referer, 'path' => $path])
@@ -80,12 +85,16 @@ class ReadTokenController extends Controller
             ->withProperties(['ip' => $ip, 'referer' => $referer, 'path' => $data['path'], 'exp' => $payload['exp']])
             ->log('token.read.issued');
 
-        $this->logViewerRequest($request, $ip, $path, true, null);
+        if ($this->shouldLogViewerRequest($request, $ip, $path)) {
+            $this->logViewerRequest($request, $ip, $path, true, null);
+        }
+
 
         return response()->json([
             'id' => $payload['jti'],
             'token' => $jwt,
             'expires_at' => $payload['exp'],
+            'expires_at_iso' => now()->setTimestamp($payload['exp'])->toIso8601String(),
         ]);
     }
 
@@ -155,4 +164,28 @@ class ReadTokenController extends Controller
             'requested_at' => now(),
         ]);
     }
+
+    private function shouldLogViewerRequest(Request $request, string $ip, string $path): bool
+    {
+        $seconds = (int) config('services.viewer_log.throttle_seconds', 10);
+        if ($seconds <= 0) return true;
+
+        $mode = (string) config('services.viewer_log.throttle_mode', 'ip_path_ua');
+
+        $ua = (string) $request->userAgent();
+        $ref = (string) $request->headers->get('referer', '');
+
+        $keyParts = match ($mode) {
+            'ip_path' => [$ip, $path],
+            'ip_path_ref' => [$ip, $path, $ref],
+            default => [$ip, $path, $ua], // ip_path_ua
+        };
+
+        $key = 'vr:log:' . sha1(implode('|', $keyParts));
+
+        // Cache:add returns true only if key did NOT exist.
+        // So we only log once per TTL window for that fingerprint.
+        return cache()->add($key, 1, now()->addSeconds($seconds));
+    }
+
 }

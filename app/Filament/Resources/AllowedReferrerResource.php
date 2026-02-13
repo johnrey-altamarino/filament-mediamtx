@@ -26,7 +26,7 @@ class AllowedReferrerResource extends Resource
                 ->required()
                 ->maxLength(255),
 
-            Forms\Components\TextInput::make('pattern')
+            Forms\Components\TextInput::make('Domain or regex pattern')
                 ->label('Pattern')
                 ->helperText('If regex is enabled, use a PHP regex delimiter, e.g. /^https:\\/\\/([a-z0-9-]+\\.)*armtech\\.one(\\/|$)/i')
                 ->required()
@@ -35,7 +35,7 @@ class AllowedReferrerResource extends Resource
 
             Forms\Components\Toggle::make('is_regex')
                 ->label('Use regex')
-                ->default(true),
+                ->default(false),
 
             Forms\Components\Toggle::make('is_enabled')
                 ->label('Enabled')
@@ -52,35 +52,12 @@ class AllowedReferrerResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\IconColumn::make('is_enabled')
-                    ->label('Enabled')
-                    ->boolean()
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('name')
-                    ->searchable()
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('pattern')
-                    ->label('Pattern')
-                    ->limit(60)
-                    ->tooltip(fn (AllowedReferrer $record) => $record->pattern)
-                    ->searchable(),
-
-                Tables\Columns\IconColumn::make('is_regex')
-                    ->label('Regex')
-                    ->boolean()
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('createdBy.username')
-                    ->label('Created By')
-                    ->placeholder('-')
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime('Y-m-d H:i:s')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('pattern')->label('Domain')->limit(60)->tooltip(fn (AllowedReferrer $record) => $record->pattern)->searchable(),
+                Tables\Columns\IconColumn::make('is_regex')->label('Regex')->boolean(),
+                Tables\Columns\TextColumn::make('createdBy.username')->label('Created By')->placeholder('-')->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('created_at')->dateTime('Y-m-d H:i:s')->sortable()->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\ToggleColumn::make('is_enabled')->label('Status')->sortable(),
             ])
             ->actions([
                 Tables\Actions\Action::make('edit')

@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'viewer_log' => [
+    'throttle_seconds' => (int) env('VIEWER_LOG_THROTTLE_SECONDS', 10),
+    'throttle_mode' => env('VIEWER_LOG_THROTTLE_MODE', 'ip_path_ua'),
+    ],
+
 ];

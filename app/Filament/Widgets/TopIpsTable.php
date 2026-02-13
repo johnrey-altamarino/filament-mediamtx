@@ -14,7 +14,7 @@ class TopIpsTable extends BaseWidget
 {
     protected static ?string $heading = 'Top IPs (Last 12 Hours)';
     protected static ?int $sort = 30;
-    protected static ?string $pollingInterval = '120s';
+    protected static ?string $pollingInterval = '60s';
 
     protected int|string|array $columnSpan = 'md';
 

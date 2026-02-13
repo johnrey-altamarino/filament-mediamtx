@@ -11,6 +11,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Filament\Notifications\Notification;
+use Livewire\Component as LivewireComponent;
 
 class PublishTokenResource extends Resource
 {
@@ -58,13 +60,59 @@ class PublishTokenResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\IconColumn::make('is_enabled')->label('Enabled')->boolean()->sortable(),
+                Tables\Columns\ToggleColumn::make('is_enabled')->label('Status')->sortable(),
                 Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('path')->label('Path')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('last_generated_at')->label('Generated')->dateTime('Y-m-d H:i:s')->sortable(),
+                Tables\Columns\TextColumn::make('last_generated_at')->label('Generated')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable(),
                 Tables\Columns\TextColumn::make('createdBy.username')->label('Created By')->placeholder('-')->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
+                Tables\Actions\Action::make('copy_token')
+                ->label('Copy Token')
+                ->icon('heroicon-o-clipboard-document')
+                ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator', 'monitoring']) ?? false)
+                ->action(function (PublishToken $record, LivewireComponent $livewire) {
+                    // Optional: enforce enabled
+                    if (! $record->is_enabled) {
+                        Notification::make()
+                            ->title('Token is disabled')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    // Ensure token exists (issue if missing)
+                    if (! filled($record->token)) {
+                        $issuer = app(MediamtxJwtIssuer::class);
+                        $issued = $issuer->issuePublishToken($record->path, noExpiry: true);
+
+                        $record->update([
+                            'token' => $issued['token'],
+                            'last_generated_at' => now(),
+                        ]);
+
+                        activity('security')
+                            ->causedBy(auth()->user())
+                            ->performedOn($record)
+                            ->withProperties(['path' => $record->path])
+                            ->log('publish_token.issued');
+                    }
+
+                    // Dispatch browser event to copy
+                    $livewire->dispatch('clipboard-copy', text: 'Bearer ' . $record->token);
+
+                    activity('security')
+                        ->causedBy(auth()->user())
+                        ->performedOn($record)
+                        ->withProperties(['path' => $record->path])
+                        ->log('publish_token.copied');
+
+                    Notification::make()
+                        ->title('Token copied to clipboard')
+                        ->success()
+                        ->send();
+                }),
                 Tables\Actions\Action::make('rotate')
                 ->label('Rotate')
                 ->icon('heroicon-o-arrow-path')
@@ -76,7 +124,7 @@ class PublishTokenResource extends Resource
 
                     $record->update([
                         'token' => $issued['token'],
-                        'last_generated_at' => now()->setTimezone('Asia/Manila'),
+                        'last_generated_at' => now(),
                     ]);
 
                     activity('security')
@@ -86,22 +134,6 @@ class PublishTokenResource extends Resource
                         ->log('publish_token.rotated');
                 })
                 ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false),
-
-                // Get Token modal
-                Tables\Actions\Action::make('get_token')
-                    ->label('Get Token')
-                    ->icon('heroicon-o-clipboard-document')
-                    ->modalHeading('OBS Bearer Token')
-                    ->modalWidth('2xl')
-                    ->modalContent(function (PublishToken $record) {
-                        $token = $record->token;
-
-                        // Render a minimal HTML chunk (no infolist arrays)
-                        return view('filament.publish-token-modal', [
-                            'path' => $record->path,
-                            'token' => $token,
-                        ]);
-                    }),
 
                 // Edit modal
                 Tables\Actions\Action::make('edit')
