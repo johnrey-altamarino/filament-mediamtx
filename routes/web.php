@@ -5,4 +5,4 @@ use App\Http\Controllers\Api\JwksController;
 
 // Route::get('/', function () {return view('admin');});
 
-Route::get('/.well-known/jwks.json', JwksController::class);
+Route::get('/.well-known/jwks.json', JwksController::class)->middleware('jwks.ip');
