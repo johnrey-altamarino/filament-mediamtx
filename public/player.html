@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MediaMTX WebRTC Player</title>
+<script defer src="./reader.js"></script>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    background: black;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: black;
+  }
+</style>
+</head>
+<body>
+
+<video id="myvideo" autoplay playsinline muted controls controlslist="nofullscreen" disablepictureinpicture></video>
+
+<script>
+let reader = null;
+let token = null;
+
+// Fetch short-lived JWT from platform
+async function fetchToken() {
+  try {
+    const res = await fetch("https://platform.jrta.online/api/read", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({ path: "rtc/live0" }),
+    });
+    const data = await res.json();
+    if (!data.token) throw new Error("JWT not received");
+    token = data.token;
+  } catch (err) {
+    console.error("Token fetch failed:", err);
+  }
+}
+
+// Initialize MediaMTX reader
+async function initPlayer() {
+  await fetchToken();
+  if (!token) return;
+
+  reader = new MediaMTXWebRTCReader({
+    url: "https://stream.jrta.online/rtc/live0/whep",
+    token,
+    onError: (err) => console.error("WebRTC error:", err),
+    onTrack: (evt) => document.getElementById("myvideo").srcObject = evt.streams[0],
+  });
+
+  // Refresh token every 45 seconds (JWT TTL is 60s)
+  setInterval(async () => {
+    await fetchToken();
+    if (reader && token) reader.updateToken(token);
+  }, 45000);
+}
+
+window.addEventListener("load", initPlayer);
+window.addEventListener("beforeunload", () => {
+  if (reader) reader.close();
+});
+</script>
+
+</body>
+</html>
