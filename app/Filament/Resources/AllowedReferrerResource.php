@@ -26,8 +26,8 @@ class AllowedReferrerResource extends Resource
                 ->required()
                 ->maxLength(255),
 
-            Forms\Components\TextInput::make('Domain or regex pattern')
-                ->label('Pattern')
+            Forms\Components\TextInput::make('pattern')
+                ->label('Domain or regex pattern')
                 ->helperText('If regex is enabled, use a PHP regex delimiter, e.g. /^https:\\/\\/([a-z0-9-]+\\.)*armtech\\.one(\\/|$)/i')
                 ->required()
                 ->maxLength(500)
