@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MediaMTX WebRTC Player</title>
@@ -35,6 +34,10 @@
 let reader = null;
 let token = null;
 
+const stream = new URLSearchParams(window.location.search).get("stream");
+const streamPath = `${stream}`;
+const whepUrl = `https://stream.jrta.online/${stream}/whep`;
+
 // Fetch short-lived JWT from platform
 async function fetchToken() {
   try {
@@ -45,7 +48,7 @@ async function fetchToken() {
         "Accept": "application/json",
       },
       credentials: "include",
-      body: JSON.stringify({ path: "rtc/live0" }),
+      body: JSON.stringify({ path: streamPath }),
     });
     const data = await res.json();
     if (!data.token) throw new Error("JWT not received");
@@ -61,7 +64,7 @@ async function initPlayer() {
   if (!token) return;
 
   reader = new MediaMTXWebRTCReader({
-    url: "https://stream.jrta.online/rtc/live0/whep",
+    url: whepUrl,
     token,
     onError: (err) => console.error("WebRTC error:", err),
     onTrack: (evt) => document.getElementById("myvideo").srcObject = evt.streams[0],
