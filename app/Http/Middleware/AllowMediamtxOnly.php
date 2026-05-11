@@ -12,7 +12,7 @@ class AllowMediamtxOnly
     // Real client IP (Cloudflare safe)
     $ip = $request->header('cf-connecting-ip') ?? $request->ip() ?? $request->getClientIp('X-Forwarded-For') ?? $request->server('REMOTE_ADDR');
 
-    $allowedIps = collect(explode(',', env('MEDIAMTX_ALLOWED_IPS', '')))
+    $allowedIps = collect(explode(',', config('services.mediamtx.allowed_ips', '')))
         ->map(fn ($ip) => trim($ip))
         ->filter()
         ->values()

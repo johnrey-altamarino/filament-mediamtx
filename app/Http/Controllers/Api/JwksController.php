@@ -8,9 +8,9 @@ class JwksController extends Controller
 {
     public function __invoke()
     {
-        $kid = (string) env('JWT_KID', 'mediamtx-1');
+        $kid = (string) config('services.mediamtx_jwt.kid', 'mediamtx-1');
 
-        $publicKeyPath = (string) env('JWT_PUBLIC_KEY_PATH', 'storage/app/jwt/public.pem');
+        $publicKeyPath = (string) config('services.mediamtx_jwt.public_key_path', 'storage/app/jwt/public.pem');
         $pem = file_get_contents(base_path($publicKeyPath));
 
         if (! $pem) {

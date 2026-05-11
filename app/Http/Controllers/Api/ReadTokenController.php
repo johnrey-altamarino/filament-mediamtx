@@ -52,11 +52,11 @@ class ReadTokenController extends Controller
 
         // 3) Build MediaMTX JWT
         $now = time();
-        $ttl = (int) config('services.mediamtx_jwt.ttl', (int) env('JWT_TTL_SECONDS', 60));
-        $kid = (string) config('services.mediamtx_jwt.kid', (string) env('JWT_KID', 'mediamtx-1'));
-        $iss = (string) config('services.mediamtx_jwt.iss', (string) env('JWT_ISSUER', config('app.url')));
+        $ttl = config('services.mediamtx_jwt.ttl', 60);
+        $kid = (string) config('services.mediamtx_jwt.kid', 'mediamtx-1');
+        $iss = (string) (config('services.mediamtx_jwt.iss') ?: config('app.url'));
 
-        $privateKeyPath = (string) env('JWT_PRIVATE_KEY_PATH');
+        $privateKeyPath = (string) config('services.mediamtx_jwt.private_key_path', 'storage/app/jwt/private.pem');
         $privateKey = @file_get_contents(base_path($privateKeyPath));
 
         if (! is_string($privateKey) || $privateKey === '') {

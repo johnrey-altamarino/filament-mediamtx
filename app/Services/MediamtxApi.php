@@ -8,14 +8,14 @@ class MediamtxApi
 {
     private function http()
     {
-        $base = rtrim(env('MEDIAMTX_API_BASE_URL', 'http://127.0.0.1:9997'), '/');
+        $base = rtrim(config('services.mediamtx.api_base_url', 'http://127.0.0.1:9997'), '/');
 
         $req = Http::baseUrl($base)
-            ->timeout((int) env('MEDIAMTX_API_TIMEOUT', 3))
+            ->timeout(config('services.mediamtx.api_timeout', 3))
             ->acceptJson();
 
-        $user = env('MEDIAMTX_API_USER');
-        $pass = env('MEDIAMTX_API_PASS');
+        $user = config('services.mediamtx.api_user');
+        $pass = config('services.mediamtx.api_pass');
 
         if ($user && $pass) {
             $req = $req->withBasicAuth($user, $pass);

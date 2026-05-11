@@ -38,15 +38,15 @@ class Sessions extends Page implements HasTable
             ->query(MediamtxSession::query())
             ->columns([
                 Tables\Columns\TextColumn::make('created')->label('Created')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable()->toggleable(),
-                Tables\Columns\TextColumn::make('type')->badge()->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('type')->badge()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('state')->badge()->sortable(),
                 Tables\Columns\TextColumn::make('session_id')->label('Session ID')->searchable(),
                 Tables\Columns\TextColumn::make('path')->searchable(),
                 Tables\Columns\TextColumn::make('ip')->label('IP')->searchable(),
-                Tables\Columns\TextColumn::make('created')->label('Created')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable()->toggleable(),
-                Tables\Columns\TextColumn::make('bytes_received')->label('Bytes In')->numeric()->toggleable(),
-                Tables\Columns\TextColumn::make('bytes_sent')->label('Bytes Out')->numeric()->toggleable(),
-                Tables\Columns\TextColumn::make('last_seen_at')->label('Last Seen')->since()->toggleable(),
+                Tables\Columns\TextColumn::make('created')->label('Created')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable()->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('bytes_received')->label('Bytes In')->numeric()->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('bytes_sent')->label('Bytes Out')->numeric()->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('last_seen_at')->label('Last Seen')->since()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
                 Tables\Actions\Action::make('kick')

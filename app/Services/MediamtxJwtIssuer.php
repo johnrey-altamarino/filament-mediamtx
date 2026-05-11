@@ -12,12 +12,12 @@ class MediamtxJwtIssuer
         $now = time();
 
         // "No expiry" implemented as far-future exp (10 years).
-        $exp = $noExpiry ? ($now + 60 * 60 * 24 * 365 * 10) : ($now + (int) env('JWT_TTL_SECONDS', 60));
+        $exp = $noExpiry ? ($now + 60 * 60 * 24 * 365 * 10) : ($now + config('services.mediamtx_jwt.ttl', 60));
 
-        $kid = (string) env('JWT_KID', 'mediamtx-1');
-        $iss = (string) env('JWT_ISSUER', config('app.url'));
+        $kid = (string) config('services.mediamtx_jwt.kid', 'mediamtx-1');
+        $iss = (string) (config('services.mediamtx_jwt.iss') ?: config('app.url'));
 
-        $privateKeyPath = (string) env('JWT_PRIVATE_KEY_PATH', 'storage/app/jwt/private.pem');
+        $privateKeyPath = (string) config('services.mediamtx_jwt.private_key_path', 'storage/app/jwt/private.pem');
         $privateKey = @file_get_contents(base_path($privateKeyPath));
 
         if (! $privateKey) {
