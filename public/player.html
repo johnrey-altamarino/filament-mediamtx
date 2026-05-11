@@ -2,11 +2,10 @@
 <html lang="en">
 <head>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
-
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MediaMTX WebRTC Player</title>
-<script defer src="./reader.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/video.js@8/dist/video-js.min.css" rel="stylesheet">
 <style>
   html, body {
     margin: 0;
@@ -18,69 +17,33 @@
     justify-content: center;
     align-items: center;
   }
-  video {
+  .video-js {
     width: 100%;
     height: 100%;
-    object-fit: contain;
-    background: black;
   }
 </style>
 </head>
 <body>
 
-<video id="myvideo" autoplay playsinline muted controls controlslist="nofullscreen" disablepictureinpicture></video>
+<video id="myvideo" class="video-js vjs-default-skin"></video>
 
+<script src="https://cdn.jsdelivr.net/npm/video.js@8/dist/video.min.js"></script>
+<script src="./reader.js"></script>
+<script src="./whep-tech.js"></script>
 <script>
-let reader = null;
-let token = null;
-
-const stream = new URLSearchParams(window.location.search).get("stream");
-const streamPath = `${stream}`;
-const whepUrl = `https://stream.jrta.online/${stream}/whep`;
-
-// Fetch short-lived JWT from platform
-async function fetchToken() {
-  try {
-    const res = await fetch("https://platform.jrta.online/api/read", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({ path: streamPath }),
-    });
-    const data = await res.json();
-    if (!data.token) throw new Error("JWT not received");
-    token = data.token;
-  } catch (err) {
-    console.error("Token fetch failed:", err);
-  }
-}
-
-// Initialize MediaMTX reader
-async function initPlayer() {
-  await fetchToken();
-  if (!token) return;
-
-  reader = new MediaMTXWebRTCReader({
-    url: whepUrl,
-    token,
-    onError: (err) => console.error("WebRTC error:", err),
-    onTrack: (evt) => document.getElementById("myvideo").srcObject = evt.streams[0],
+  const player = videojs('myvideo', {
+    techOrder: ['MediamtxWhep'],
+    controls: true,
+    autoplay: true,
+    muted: true,
+    sources: [{ type: 'video/whep', src: 'whep' }],
+    controlBar: {
+      fullscreenToggle: false,
+      pictureInPictureToggle: false,
+    },
   });
 
-  // Refresh token every 45 seconds (JWT TTL is 60s)
-  setInterval(async () => {
-    await fetchToken();
-    if (reader && token) reader.updateToken(token);
-  }, 45000);
-}
-
-window.addEventListener("load", initPlayer);
-window.addEventListener("beforeunload", () => {
-  if (reader) reader.close();
-});
+  window.addEventListener('beforeunload', () => player.dispose());
 </script>
 
 </body>
