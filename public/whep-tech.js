@@ -11,6 +11,8 @@
       this._tokenInterval = null;
       this._stream = new URLSearchParams(window.location.search).get('stream');
       this._whepUrl = `https://stream.jrta.online/${this._stream}/whep`;
+      if (!this._stream) throw new Error('Missing required ?stream= query param');
+      this._initialising = false;
     }
 
     createEl() {
@@ -26,7 +28,8 @@
     }
 
     async play() {
-      if (this._reader) return;
+      if (this._reader || this._initialising) return;
+      this._initialising = true;
       try {
         this._token = await this._fetchToken();
         this._initReader();
@@ -41,6 +44,8 @@
       } catch (err) {
         console.error('Player init failed:', err);
         this.trigger('error');
+      } finally {
+        this._initialising = false;
       }
     }
 
@@ -83,6 +88,7 @@
         credentials: 'include',
         body: JSON.stringify({ path: this._stream }),
       });
+      if (!res.ok) throw new Error(`Token fetch failed: ${res.status}`);
       const data = await res.json();
       if (!data.token) throw new Error('JWT not received');
       return data.token;
