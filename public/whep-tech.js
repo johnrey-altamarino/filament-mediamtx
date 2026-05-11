@@ -10,8 +10,8 @@
       this._token = null;
       this._tokenInterval = null;
       this._stream = new URLSearchParams(window.location.search).get('stream');
-      this._whepUrl = `https://stream.jrta.online/${this._stream}/whep`;
       if (!this._stream) throw new Error('Missing required ?stream= query param');
+      this._whepUrl = `https://stream.jrta.online/${this._stream}/whep`;
       this._initialising = false;
     }
 
@@ -102,6 +102,8 @@
           console.error('WebRTC error:', err);
         },
         onTrack: (evt) => {
+          if (!this.el_) return;
+          if (this.el_.srcObject) return;
           this.el_.srcObject = evt.streams[0];
           this.trigger('loadstart');
           this.trigger('canplay');
