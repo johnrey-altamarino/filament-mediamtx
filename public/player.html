@@ -70,11 +70,6 @@ async function initPlayer() {
     onTrack: (evt) => document.getElementById("myvideo").srcObject = evt.streams[0],
   });
 
-  // Refresh token every 45 seconds (JWT TTL is 60s)
-  setInterval(async () => {
-    await fetchToken();
-    if (reader && token) reader.updateToken(token);
-  }, 45000);
 }
 
 window.addEventListener("load", initPlayer);
