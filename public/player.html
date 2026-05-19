@@ -24,61 +24,108 @@
     object-fit: contain;
     background: black;
   }
+  #status {
+    position: absolute;
+    color: #ccc;
+    font-family: sans-serif;
+    font-size: 0.9rem;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
 
-<video id="myvideo" autoplay playsinline muted controls controlslist="nofullscreen" disablepictureinpicture></video>
+<video id="myvideo" autoplay playsinline muted controls disablepictureinpicture></video>
+<div id="status"></div>
 
 <script>
+const WHEP_BASE_URL = "https://stream.jrta.online";
+
 let reader = null;
 let token = null;
+let retryDelay = 2000;
+let refreshTimer = null;
 
 const stream = new URLSearchParams(window.location.search).get("stream");
-const streamPath = `${stream}`;
-const whepUrl = `https://stream.jrta.online/${stream}/whep`;
 
-// Fetch short-lived JWT from platform
+if (!stream) {
+  document.body.innerHTML = '<p style="color:#fff;font-family:sans-serif;text-align:center;margin-top:2rem">Missing required <code>?stream=</code> parameter.</p>';
+  throw new Error("Missing stream parameter");
+}
+
+const whepUrl = `${WHEP_BASE_URL}/${stream}/whep`;
+const statusEl = document.getElementById("status");
+const videoEl = document.getElementById("myvideo");
+
+function setStatus(msg) {
+  statusEl.textContent = msg;
+}
+
 async function fetchToken() {
-  try {
-    const res = await fetch("https://platform.jrta.online/api/read", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({ path: streamPath }),
-    });
-    const data = await res.json();
-    if (!data.token) throw new Error("JWT not received");
-    token = data.token;
-  } catch (err) {
-    console.error("Token fetch failed:", err);
+  const res = await fetch("/api/read", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({ path: stream }),
+  });
+
+  if (!res.ok) throw new Error(`Token request denied (${res.status})`);
+
+  const data = await res.json();
+  if (!data.token) throw new Error("JWT not received");
+
+  token = data.token;
+
+  // Schedule a silent refresh 10s before the token expires
+  if (refreshTimer) clearTimeout(refreshTimer);
+  if (data.expires_at) {
+    const msUntilRefresh = data.expires_at * 1000 - Date.now() - 10_000;
+    if (msUntilRefresh > 0) {
+      refreshTimer = setTimeout(async () => {
+        try { await fetchToken(); } catch (err) { console.error("Token refresh failed:", err); }
+      }, msUntilRefresh);
+    }
   }
 }
 
-// Initialize MediaMTX reader
 async function initPlayer() {
-  await fetchToken();
-  if (!token) return;
+  setStatus("Connecting…");
+
+  try {
+    await fetchToken();
+  } catch (err) {
+    setStatus(`Error: ${err.message}`);
+    return;
+  }
+
+  if (reader) { reader.close(); reader = null; }
 
   reader = new MediaMTXWebRTCReader({
     url: whepUrl,
     token,
-    onError: (err) => console.error("WebRTC error:", err),
-    onTrack: (evt) => document.getElementById("myvideo").srcObject = evt.streams[0],
+    onError: (err) => {
+      console.error("WebRTC error:", err);
+      setStatus("Reconnecting…");
+      if (reader) { reader.close(); reader = null; }
+      setTimeout(() => {
+        retryDelay = Math.min(retryDelay * 2, 30_000);
+        initPlayer();
+      }, retryDelay);
+    },
+    onTrack: (evt) => {
+      videoEl.srcObject = evt.streams[0];
+      setStatus("");
+      retryDelay = 2000;
+    },
   });
-
-  // Refresh token every 45 seconds (JWT TTL is 60s)
-  setInterval(async () => {
-    await fetchToken();
-    if (reader && token) reader.updateToken(token);
-  }, 45000);
 }
 
 window.addEventListener("load", initPlayer);
 window.addEventListener("beforeunload", () => {
+  if (refreshTimer) clearTimeout(refreshTimer);
   if (reader) reader.close();
 });
 </script>
