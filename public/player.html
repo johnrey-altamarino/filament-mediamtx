@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
-
+<link rel="preconnect" href="https://stream.jrta.online">
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MediaMTX WebRTC Player</title>
@@ -31,11 +31,29 @@
     font-size: 0.9rem;
     pointer-events: none;
   }
+  #loader {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  #loader.hidden { display: none; }
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(255,255,255,0.12);
+    border-top-color: rgba(255,255,255,0.55);
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
 <video id="myvideo" autoplay playsinline muted disablepictureinpicture></video>
+<div id="loader"><div class="spinner"></div></div>
 <div id="status"></div>
 
 <script>
@@ -56,13 +74,16 @@ if (!stream) {
 const whepUrl = `${WHEP_BASE_URL}/${stream}/whep`;
 const statusEl = document.getElementById("status");
 const videoEl = document.getElementById("myvideo");
+const loaderEl = document.getElementById("loader");
 
-function setStatus(msg) {
-  statusEl.textContent = msg;
-}
+function setStatus(msg) { statusEl.textContent = msg; }
+function showLoader(v) { loaderEl.classList.toggle("hidden", !v); }
+
+videoEl.addEventListener("playing", () => showLoader(false));
+videoEl.addEventListener("waiting", () => showLoader(true));
 
 async function fetchToken() {
-  const res = await fetch("/api/read", {
+  const res = await fetch("https://platform.jrta.online/api/read", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -79,25 +100,29 @@ async function fetchToken() {
 
   token = data.token;
 
-  // Schedule a silent refresh 10s before the token expires
   if (refreshTimer) clearTimeout(refreshTimer);
   if (data.expires_at) {
     const msUntilRefresh = data.expires_at * 1000 - Date.now() - 10_000;
     if (msUntilRefresh > 0) {
       refreshTimer = setTimeout(async () => {
-        try { await fetchToken(); } catch (err) { console.error("Token refresh failed:", err); }
+        try { tokenPromise = fetchToken(); await tokenPromise; } catch (err) { console.error("Token refresh failed:", err); }
       }, msUntilRefresh);
     }
   }
 }
 
+// Kick off token fetch immediately — runs in parallel with reader.js codec probing
+let tokenPromise = fetchToken();
+
 async function initPlayer() {
   setStatus("Connecting…");
+  showLoader(true);
 
   try {
-    await fetchToken();
+    await tokenPromise;
   } catch (err) {
     setStatus(`Error: ${err.message}`);
+    showLoader(false);
     return;
   }
 
@@ -109,9 +134,11 @@ async function initPlayer() {
     onError: (err) => {
       console.error("WebRTC error:", err);
       setStatus("Reconnecting…");
+      showLoader(true);
       if (reader) { reader.close(); reader = null; }
       setTimeout(() => {
         retryDelay = Math.min(retryDelay * 2, 30_000);
+        tokenPromise = fetchToken();
         initPlayer();
       }, retryDelay);
     },
@@ -123,7 +150,8 @@ async function initPlayer() {
   });
 }
 
-window.addEventListener("load", initPlayer);
+// defer scripts execute before DOMContentLoaded, so MediaMTXWebRTCReader is ready here
+window.addEventListener("DOMContentLoaded", initPlayer);
 window.addEventListener("beforeunload", () => {
   if (refreshTimer) clearTimeout(refreshTimer);
   if (reader) reader.close();
