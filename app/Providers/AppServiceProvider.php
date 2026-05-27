@@ -9,6 +9,26 @@ use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
+    public function register(): void
+    {
+        $this->app->singleton('mediamtx.jwt.private_key', function () {
+            $path = (string) config('services.mediamtx_jwt.private_key_path', 'storage/app/jwt/private.pem');
+            $absolutePath = base_path($path);
+
+            if (! is_readable($absolutePath)) {
+                throw new \RuntimeException("JWT private key not found or not readable: {$absolutePath}");
+            }
+
+            $key = file_get_contents($absolutePath);
+
+            if ($key === false || $key === '') {
+                throw new \RuntimeException('JWT private key is empty');
+            }
+
+            return $key;
+        });
+    }
+
     public function boot(): void
     {
         RateLimiter::for('token-read', function (Request $request) {
