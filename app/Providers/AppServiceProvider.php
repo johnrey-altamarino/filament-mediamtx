@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\ClientIpResolver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -32,8 +33,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for('token-read', function (Request $request) {
-            $ip = $request->header('cf-connecting-ip')
-                ?: ($request->header('x-forwarded-for') ? trim(explode(',', $request->header('x-forwarded-for'))[0]) : $request->ip());
+            $ip = app(ClientIpResolver::class)->resolve($request);
 
             // tuned for “token minting”: keep it tight
             return [

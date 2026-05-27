@@ -6,13 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\AllowedReferrer;
 use App\Models\BlockedIp;
 use App\Models\ViewerRequest;
+use App\Services\ClientIpResolver;
 use App\Services\MediamtxJwtIssuer;
 use Illuminate\Http\Request;
 use Jenssegers\Agent\Agent;
 
 class ReadTokenController extends Controller
 {
-    public function __construct(private readonly MediamtxJwtIssuer $issuer) {}
+    public function __construct(
+        private readonly MediamtxJwtIssuer $issuer,
+        private readonly ClientIpResolver $resolver,
+    ) {}
 
     public function __invoke(Request $request)
     {
@@ -21,12 +25,12 @@ class ReadTokenController extends Controller
             'path' => ['required', 'string', 'max:255'], // MediaMTX path, e.g. "live/stream1"
         ]);
         $path = $data['path'];
-        $ip = $this->clientIp($request);
+        $ip = $this->resolver->resolve($request);
         $referer = (string) $request->headers->get('referer', '');
 
         // 1) Blocked IP gate
         $isBlocked = $ip && cache()->remember(
-            'blocked_ip:' . $ip,
+            'blocked_ip:'.$ip,
             now()->addSeconds(30),
             fn () => BlockedIp::where('ip', $ip)->exists()
         );
@@ -90,25 +94,6 @@ class ReadTokenController extends Controller
         }
 
         return false;
-    }
-
-    private function clientIp(Request $request): ?string
-    {
-        // Cloudflare (when you deploy behind CF)
-        $cf = $request->headers->get('cf-connecting-ip');
-        if ($cf) {
-            return $cf;
-        }
-
-        // Proxies
-        $xff = $request->headers->get('x-forwarded-for');
-        if ($xff) {
-            $parts = array_map('trim', explode(',', $xff));
-
-            return $parts[0] ?? $request->ip();
-        }
-
-        return $request->ip();
     }
 
     private function logViewerRequest(

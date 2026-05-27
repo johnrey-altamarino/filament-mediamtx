@@ -2,14 +2,17 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\ClientIpResolver;
 use Closure;
 use Illuminate\Http\Request;
 
 class AllowMediamtxOnly
 {
+    public function __construct(private readonly ClientIpResolver $resolver) {}
+
     public function handle(Request $request, Closure $next)
     {
-        $ip = $this->clientIp($request);
+        $ip = $this->resolver->resolve($request);
 
         $allowedIps = collect(explode(',', config('services.mediamtx.allowed_ips', '')))
             ->map(fn ($ip) => trim($ip))
@@ -23,24 +26,5 @@ class AllowMediamtxOnly
         }
 
         return $next($request);
-    }
-
-    private function clientIp(Request $request): string
-    {
-        // Cloudflare (when deployed behind CF)
-        $cf = $request->headers->get('cf-connecting-ip');
-        if ($cf) {
-            return $cf;
-        }
-
-        // Proxies
-        $xff = $request->headers->get('x-forwarded-for');
-        if ($xff) {
-            $parts = array_map('trim', explode(',', $xff));
-
-            return $parts[0] ?? $request->ip() ?? '0.0.0.0';
-        }
-
-        return $request->ip() ?? '0.0.0.0';
     }
 }
