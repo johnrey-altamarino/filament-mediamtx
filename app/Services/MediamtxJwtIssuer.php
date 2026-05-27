@@ -14,10 +14,7 @@ class MediamtxJwtIssuer
         // "No expiry" implemented as far-future exp (10 years).
         $exp = $noExpiry ? ($now + 60 * 60 * 24 * 365 * 10) : ($now + config('services.mediamtx_jwt.ttl', 60));
 
-        $kid = (string) config('services.mediamtx_jwt.kid', 'mediamtx-1');
-        $iss = (string) (config('services.mediamtx_jwt.iss') ?: config('app.url'));
-
-        $privateKey = app('mediamtx.jwt.private_key');
+        ['kid' => $kid, 'iss' => $iss, 'privateKey' => $privateKey] = $this->jwtCommonConfig();
 
         $payload = [
             'iss' => $iss,
@@ -33,17 +30,15 @@ class MediamtxJwtIssuer
 
         $jwt = JWT::encode($payload, $privateKey, 'RS256', $kid);
 
-        return ['token' => $jwt, 'exp' => $exp];
+        return ['token' => $jwt, 'expires_at' => $exp];
     }
 
     public function issueReadToken(string $path): array
     {
         $now = time();
         $ttl = (int) config('services.mediamtx_jwt.ttl', 60);
-        $kid = (string) config('services.mediamtx_jwt.kid', 'mediamtx-1');
-        $iss = (string) (config('services.mediamtx_jwt.iss') ?: config('app.url'));
 
-        $privateKey = app('mediamtx.jwt.private_key');
+        ['kid' => $kid, 'iss' => $iss, 'privateKey' => $privateKey] = $this->jwtCommonConfig();
 
         $payload = [
             'iss' => $iss,
@@ -62,6 +57,15 @@ class MediamtxJwtIssuer
             'token'          => $jwt,
             'expires_at'     => $payload['exp'],
             'expires_at_iso' => now()->setTimestamp($payload['exp'])->toIso8601String(),
+        ];
+    }
+
+    private function jwtCommonConfig(): array
+    {
+        return [
+            'kid'        => (string) config('services.mediamtx_jwt.kid', 'mediamtx-1'),
+            'iss'        => (string) (config('services.mediamtx_jwt.iss') ?: config('app.url')),
+            'privateKey' => app('mediamtx.jwt.private_key'),
         ];
     }
 }

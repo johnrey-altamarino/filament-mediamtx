@@ -12,6 +12,8 @@ use Jenssegers\Agent\Agent;
 
 class ReadTokenController extends Controller
 {
+    public function __construct(private readonly MediamtxJwtIssuer $issuer) {}
+
     public function __invoke(Request $request)
     {
 
@@ -56,9 +58,9 @@ class ReadTokenController extends Controller
 
         // 3) Issue read JWT via service
         try {
-            $tokenData = app(MediamtxJwtIssuer::class)->issueReadToken($path);
-        } catch (\RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 500);
+            $tokenData = $this->issuer->issueReadToken($path);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Failed to issue token'], 500);
         }
 
         activity('security')
