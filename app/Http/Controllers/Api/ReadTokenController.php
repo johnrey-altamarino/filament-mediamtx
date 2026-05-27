@@ -24,7 +24,12 @@ class ReadTokenController extends Controller
         $referer = (string) $request->headers->get('referer', '');
 
         // 1) Blocked IP gate
-        if ($ip && BlockedIp::where('ip', $ip)->exists()) {
+        $isBlocked = $ip && cache()->remember(
+            'blocked_ip:' . $ip,
+            now()->addSeconds(30),
+            fn () => BlockedIp::where('ip', $ip)->exists()
+        );
+        if ($isBlocked) {
 
             if ($this->shouldLogViewerRequest($request, $ip, $path)) {
                 $this->logViewerRequest($request, $ip, $path, false, 'blocked_ip');
@@ -99,9 +104,11 @@ class ReadTokenController extends Controller
 
     private function refererAllowed(string $referer): bool
     {
-        $rules = AllowedReferrer::query()
-            ->where('is_enabled', true)
-            ->get();
+        $rules = cache()->remember(
+            'allowed_referrers',
+            now()->addSeconds(30),
+            fn () => AllowedReferrer::query()->where('is_enabled', true)->get()
+        );
 
         foreach ($rules as $rule) {
             if ($rule->matches($referer)) {
