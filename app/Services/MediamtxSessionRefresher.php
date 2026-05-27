@@ -6,12 +6,13 @@ use App\Models\MediamtxSession;
 
 class MediamtxSessionRefresher
 {
+    public function __construct(private readonly MediamtxApi $api) {}
+
     public function refresh(): void
     {
-        $api = app(MediamtxApi::class);
         $now = now();
 
-        $items = data_get($api->listWebRtcSessions(), 'items', []);
+        $items = data_get($this->api->listWebRtcSessions(), 'items', []);
 
         $rows = collect($items)->map(function ($it) {
             $remote = (string) data_get($it, 'remoteAddr', '');
