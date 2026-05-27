@@ -24,21 +24,26 @@
     object-fit: contain;
     background: black;
   }
-  #status {
+  #loader {
     position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    pointer-events: none;
+  }
+  #spinner.hidden { display: none; }
+  #status {
     color: #ccc;
     font-family: sans-serif;
     font-size: 0.9rem;
     pointer-events: none;
+    text-align: center;
   }
-  #loader {
-    position: absolute;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
+  #status.error {
+    color: #ff6b6b;
   }
-  #loader.hidden { display: none; }
   .spinner {
     width: 36px;
     height: 36px;
@@ -46,6 +51,7 @@
     border-top-color: rgba(255,255,255,0.55);
     border-radius: 50%;
     animation: spin 0.75s linear infinite;
+    display: inline-block;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   #tap-overlay {
@@ -75,8 +81,10 @@
 <body>
 
 <video id="myvideo" autoplay playsinline muted disablepictureinpicture></video>
-<div id="loader"><div class="spinner"></div></div>
-<div id="status"></div>
+<div id="loader">
+  <div id="spinner" class="spinner"></div>
+  <div id="status"></div>
+</div>
 <div id="tap-overlay" class="hidden">
   <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg>
   <span>Tap to play</span>
@@ -103,11 +111,14 @@ if (!stream) {
 const whepUrl = `${WHEP_BASE_URL}/${stream}/whep`;
 const statusEl = document.getElementById("status");
 const videoEl = document.getElementById("myvideo");
-const loaderEl = document.getElementById("loader");
+const spinnerEl = document.getElementById("spinner");
 const tapOverlay = document.getElementById("tap-overlay");
 
-function setStatus(msg) { statusEl.textContent = msg; }
-function showLoader(v) { loaderEl.classList.toggle("hidden", !v); }
+function setStatus(msg, isError = false) {
+  statusEl.textContent = msg;
+  statusEl.classList.toggle("error", isError);
+}
+function showLoader(v) { spinnerEl.classList.toggle("hidden", !v); }
 
 function startWatchdog() {
   clearWatchdog();
@@ -185,7 +196,7 @@ async function initPlayer() {
     await tokenPromise;
   } catch (err) {
     clearWatchdog();
-    setStatus(`Error: ${err.message}`);
+    setStatus(`Error: ${err.message}`, true);
     showLoader(false);
     starting = false;
     return;
