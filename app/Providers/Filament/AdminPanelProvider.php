@@ -12,6 +12,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -47,7 +48,13 @@ class AdminPanelProvider extends PanelProvider
                 BrowserBreakdownChart::class,
                 DeviceBreakdownChart::class,
                 TopIpsTable::class,
-
+            ])
+            ->navigationItems([
+                NavigationItem::make('Open Player')
+                    ->url('/play', shouldOpenInNewTab: true)
+                    ->icon('heroicon-o-play')
+                    ->group('Control')
+                    ->sort(99),
             ])
             ->middleware([
                 EncryptCookies::class,
