@@ -11,13 +11,19 @@ class JwksController extends Controller
         $kid = (string) config('services.mediamtx_jwt.kid', 'mediamtx-1');
 
         $publicKeyPath = (string) config('services.mediamtx_jwt.public_key_path', 'storage/app/jwt/public.pem');
-        $pem = file_get_contents(base_path($publicKeyPath));
+        $absolutePath = base_path($publicKeyPath);
 
-        if (! $pem) {
+        if (! is_readable($absolutePath)) {
             return response()->json(['message' => 'JWT public key not configured'], 500);
         }
 
-        $jwk = $this->pemToJwk($pem, $kid);
+        $pem = file_get_contents($absolutePath);
+
+        if ($pem === false || $pem === '') {
+            return response()->json(['message' => 'JWT public key not configured'], 500);
+        }
+
+        $jwk = cache()->remember('jwks.'.$kid, now()->addHour(), fn () => $this->pemToJwk($pem, $kid));
 
         return response()->json([
             'keys' => [$jwk],
