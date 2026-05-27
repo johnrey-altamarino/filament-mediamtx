@@ -35,7 +35,7 @@ class Sessions extends Page implements HasTable
         try {
             app(MediamtxSessionRefresher::class)->refresh();
         } catch (\Throwable $e) {
-            Log::warning('Failed to refresh MediaMTX sessions', ['exception' => $e->getMessage()]);
+            Log::warning('Failed to refresh MediaMTX sessions', ['exception' => $e]);
             Notification::make()
                 ->title('Could not refresh sessions: MediaMTX API unreachable')
                 ->danger()
