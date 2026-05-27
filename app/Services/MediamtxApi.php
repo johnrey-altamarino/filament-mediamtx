@@ -2,11 +2,12 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
 class MediamtxApi
 {
-    private function http()
+    private function http(): PendingRequest
     {
         $base = rtrim(config('services.mediamtx.api_base_url', 'http://127.0.0.1:9997'), '/');
 
