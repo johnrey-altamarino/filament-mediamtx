@@ -18,10 +18,16 @@ class MediamtxJwtIssuer
         $iss = (string) (config('services.mediamtx_jwt.iss') ?: config('app.url'));
 
         $privateKeyPath = (string) config('services.mediamtx_jwt.private_key_path', 'storage/app/jwt/private.pem');
-        $privateKey = @file_get_contents(base_path($privateKeyPath));
+        $absolutePath = base_path($privateKeyPath);
 
-        if (! $privateKey) {
-            throw new \RuntimeException('JWT private key not configured');
+        if (! is_readable($absolutePath)) {
+            throw new \RuntimeException("JWT private key not found or not readable: {$absolutePath}");
+        }
+
+        $privateKey = file_get_contents($absolutePath);
+
+        if ($privateKey === false || $privateKey === '') {
+            throw new \RuntimeException('JWT private key is empty');
         }
 
         $payload = [
