@@ -35,4 +35,33 @@ class MediamtxJwtIssuer
 
         return ['token' => $jwt, 'exp' => $exp];
     }
+
+    public function issueReadToken(string $path): array
+    {
+        $now = time();
+        $ttl = (int) config('services.mediamtx_jwt.ttl', 60);
+        $kid = (string) config('services.mediamtx_jwt.kid', 'mediamtx-1');
+        $iss = (string) (config('services.mediamtx_jwt.iss') ?: config('app.url'));
+
+        $privateKey = app('mediamtx.jwt.private_key');
+
+        $payload = [
+            'iss' => $iss,
+            'iat' => $now,
+            'exp' => $now + $ttl,
+            'jti' => (string) Str::uuid(),
+            'mediamtx_permissions' => [
+                ['action' => 'read', 'path' => $path],
+            ],
+        ];
+
+        $jwt = JWT::encode($payload, $privateKey, 'RS256', $kid);
+
+        return [
+            'id'             => $payload['jti'],
+            'token'          => $jwt,
+            'expires_at'     => $payload['exp'],
+            'expires_at_iso' => now()->setTimestamp($payload['exp'])->toIso8601String(),
+        ];
+    }
 }

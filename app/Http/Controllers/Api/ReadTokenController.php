@@ -6,9 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\AllowedReferrer;
 use App\Models\BlockedIp;
 use App\Models\ViewerRequest;
-use Firebase\JWT\JWT;
+use App\Services\MediamtxJwtIssuer;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Jenssegers\Agent\Agent;
 
 class ReadTokenController extends Controller
@@ -55,51 +54,23 @@ class ReadTokenController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        // 3) Build MediaMTX JWT
-        $now = time();
-        $ttl = config('services.mediamtx_jwt.ttl', 60);
-        $kid = (string) config('services.mediamtx_jwt.kid', 'mediamtx-1');
-        $iss = (string) (config('services.mediamtx_jwt.iss') ?: config('app.url'));
-
-        $privateKeyPath = (string) config('services.mediamtx_jwt.private_key_path', 'storage/app/jwt/private.pem');
-        $privateKey = @file_get_contents(base_path($privateKeyPath));
-
-        if (! is_string($privateKey) || $privateKey === '') {
-            return response()->json(['message' => 'JWT private key not configured'], 500);
+        // 3) Issue read JWT via service
+        try {
+            $tokenData = app(MediamtxJwtIssuer::class)->issueReadToken($path);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
         }
-
-        $payload = [
-            'iss' => $iss,
-            'iat' => $now,
-            'exp' => $now + $ttl,
-            'jti' => (string) Str::uuid(),
-
-            // MediaMTX default claim key is "mediamtx_permissions" :contentReference[oaicite:3]{index=3}
-            'mediamtx_permissions' => [
-                [
-                    'action' => 'read',
-                    'path' => $data['path'],
-                ],
-            ],
-        ];
-
-        $jwt = JWT::encode($payload, $privateKey, 'RS256', $kid);
 
         activity('security')
             ->causedBy(auth()->user() ?? null)
-            ->withProperties(['ip' => $ip, 'referer' => $referer, 'path' => $data['path'], 'exp' => $payload['exp']])
+            ->withProperties(['ip' => $ip, 'referer' => $referer, 'path' => $path, 'exp' => $tokenData['expires_at']])
             ->log('token.read.issued');
 
         if ($this->shouldLogViewerRequest($request, $ip, $path)) {
             $this->logViewerRequest($request, $ip, $path, true, null);
         }
 
-        return response()->json([
-            'id' => $payload['jti'],
-            'token' => $jwt,
-            'expires_at' => $payload['exp'],
-            'expires_at_iso' => now()->setTimestamp($payload['exp'])->toIso8601String(),
-        ]);
+        return response()->json($tokenData);
     }
 
     private function refererAllowed(string $referer): bool
