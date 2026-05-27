@@ -9,6 +9,18 @@ return new class extends Migration
 {
     private function hasIndex(string $table, string $indexName): bool
     {
+        // SQLite does not have information_schema; use pragma instead
+        if (DB::getDriverName() !== 'mysql') {
+            $indexes = DB::select("PRAGMA index_list(\"{$table}\")");
+            foreach ($indexes as $index) {
+                if ($index->name === $indexName) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         $db = DB::getDatabaseName();
 
         $result = DB::selectOne('
@@ -53,15 +65,15 @@ return new class extends Migration
             });
         }
 
-        // Prefix index for TEXT user_agent
-        if (! $this->hasIndex('viewer_requests', 'vr_user_agent_prefix_idx')) {
+        // Prefix index for TEXT user_agent (MySQL only)
+        if (DB::getDriverName() === 'mysql' && ! $this->hasIndex('viewer_requests', 'vr_user_agent_prefix_idx')) {
             DB::statement('CREATE INDEX vr_user_agent_prefix_idx ON viewer_requests (user_agent(120))');
         }
     }
 
     public function down(): void
     {
-        if ($this->hasIndex('viewer_requests', 'vr_user_agent_prefix_idx')) {
+        if (DB::getDriverName() === 'mysql' && $this->hasIndex('viewer_requests', 'vr_user_agent_prefix_idx')) {
             DB::statement('DROP INDEX vr_user_agent_prefix_idx ON viewer_requests');
         }
 

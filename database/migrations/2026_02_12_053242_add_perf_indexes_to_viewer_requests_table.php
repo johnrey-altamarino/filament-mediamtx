@@ -23,15 +23,19 @@ return new class extends Migration
             $table->index(['path', 'requested_at'], 'vr_path_requested_at_idx');
         });
 
-        // Prefix index for long text user_agent (MySQL)
+        // Prefix index for long text user_agent (MySQL only)
         // Works for utf8mb4 safely with a moderate prefix.
-        DB::statement('CREATE INDEX vr_user_agent_prefix_idx ON viewer_requests (user_agent(120))');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('CREATE INDEX vr_user_agent_prefix_idx ON viewer_requests (user_agent(120))');
+        }
     }
 
     public function down(): void
     {
-        // Drop prefix index first
-        DB::statement('DROP INDEX vr_user_agent_prefix_idx ON viewer_requests');
+        // Drop prefix index (MySQL only)
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('DROP INDEX vr_user_agent_prefix_idx ON viewer_requests');
+        }
 
         Schema::table('viewer_requests', function (Blueprint $table) {
             $table->dropIndex('vr_requested_at_idx');
