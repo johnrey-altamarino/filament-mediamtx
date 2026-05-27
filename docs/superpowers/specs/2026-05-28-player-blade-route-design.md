@@ -85,7 +85,7 @@ MEDIAMTX_STREAM_BASE_URL=
 | `value` | text | not null |
 | `created_at` / `updated_at` | timestamps | |
 
-**Seeder:** Insert default row `{ key: 'ip_mode', value: 'blacklist' }` into `player_settings`. No default IP rules seeded — blacklist mode with no entries means all traffic is allowed.
+**Default data:** The `create_player_settings_table` migration inserts the default row `{ key: 'ip_mode', value: 'blacklist' }` inline (data migration). No seeder file needed. No default IP rules inserted — blacklist mode with no entries means all traffic is allowed.
 
 ### Models
 
@@ -184,7 +184,6 @@ Opens `/play` in a new tab. Admin appends `?stream=<path>` manually to the URL.
 | Create | `resources/views/player.blade.php` |
 | Create | `database/migrations/xxxx_create_player_ip_rules_table.php` |
 | Create | `database/migrations/xxxx_create_player_settings_table.php` |
-| Create | `database/seeders/PlayerSettingsSeeder.php` |
 | Modify | `routes/web.php` |
 | Modify | `config/services.php` |
 | Modify | `.env.example` |
