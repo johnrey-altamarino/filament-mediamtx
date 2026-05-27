@@ -11,6 +11,7 @@ use Filament\Pages\Page;
 use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Illuminate\Support\Facades\Log;
 
 class Sessions extends Page implements HasTable
 {
@@ -31,7 +32,15 @@ class Sessions extends Page implements HasTable
 
     public function refreshSessions(): void
     {
-        app(MediamtxSessionRefresher::class)->refresh();
+        try {
+            app(MediamtxSessionRefresher::class)->refresh();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to refresh MediaMTX sessions', ['exception' => $e->getMessage()]);
+            Notification::make()
+                ->title('Could not refresh sessions: MediaMTX API unreachable')
+                ->danger()
+                ->send();
+        }
     }
 
     public function table(Tables\Table $table): Tables\Table
@@ -46,7 +55,6 @@ class Sessions extends Page implements HasTable
                 Tables\Columns\TextColumn::make('session_id')->label('Session ID')->searchable(),
                 Tables\Columns\TextColumn::make('path')->searchable(),
                 Tables\Columns\TextColumn::make('ip')->label('IP')->searchable(),
-                Tables\Columns\TextColumn::make('created')->label('Created')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('bytes_received')->label('Bytes In')->numeric()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('bytes_sent')->label('Bytes Out')->numeric()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('last_seen_at')->label('Last Seen')->since()->toggleable(isToggledHiddenByDefault: true),
