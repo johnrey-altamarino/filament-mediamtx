@@ -46,6 +46,7 @@ return [
         'api_pass' => env('MEDIAMTX_API_PASS'),
         'api_timeout' => (int) env('MEDIAMTX_API_TIMEOUT', 3),
         'allowed_ips' => env('MEDIAMTX_ALLOWED_IPS', ''),
+        'stale_seconds' => (int) env('MEDIAMTX_SESSION_STALE_SECONDS', 20),
     ],
 
     'mediamtx_jwt' => [

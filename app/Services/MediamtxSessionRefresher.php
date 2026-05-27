@@ -38,8 +38,9 @@ class MediamtxSessionRefresher
             );
         }
 
-        // delete stale rows not seen for 20s
-        MediamtxSession::where('last_seen_at', '<', now()->subSeconds(20))->delete();
+        // delete stale rows not seen within the configured threshold
+        $stale = (int) config('services.mediamtx.stale_seconds', 20);
+        MediamtxSession::where('last_seen_at', '<', now()->subSeconds($stale))->delete();
     }
 
     private function extractIp(string $remoteAddr): string
