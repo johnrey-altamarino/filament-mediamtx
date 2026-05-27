@@ -9,8 +9,7 @@ class AllowMediamtxOnly
 {
     public function handle(Request $request, Closure $next)
     {
-        // Real client IP (Cloudflare safe)
-        $ip = $request->header('cf-connecting-ip') ?? $request->ip() ?? $request->getClientIp('X-Forwarded-For') ?? $request->server('REMOTE_ADDR');
+        $ip = $this->clientIp($request);
 
         $allowedIps = collect(explode(',', config('services.mediamtx.allowed_ips', '')))
             ->map(fn ($ip) => trim($ip))
@@ -23,5 +22,24 @@ class AllowMediamtxOnly
         }
 
         return $next($request);
+    }
+
+    private function clientIp(Request $request): ?string
+    {
+        // Cloudflare (when deployed behind CF)
+        $cf = $request->headers->get('cf-connecting-ip');
+        if ($cf) {
+            return $cf;
+        }
+
+        // Proxies
+        $xff = $request->headers->get('x-forwarded-for');
+        if ($xff) {
+            $parts = array_map('trim', explode(',', $xff));
+
+            return $parts[0] ?? $request->ip();
+        }
+
+        return $request->ip();
     }
 }
