@@ -17,6 +17,7 @@ class AllowMediamtxOnly
             ->values()
             ->all();
 
+        // Note: if MEDIAMTX_ALLOWED_IPS is unset/empty, all requests are denied (fail-closed by design).
         if (! in_array($ip, $allowedIps, true)) {
             abort(403);
         }
@@ -24,7 +25,7 @@ class AllowMediamtxOnly
         return $next($request);
     }
 
-    private function clientIp(Request $request): ?string
+    private function clientIp(Request $request): string
     {
         // Cloudflare (when deployed behind CF)
         $cf = $request->headers->get('cf-connecting-ip');
@@ -37,9 +38,9 @@ class AllowMediamtxOnly
         if ($xff) {
             $parts = array_map('trim', explode(',', $xff));
 
-            return $parts[0] ?? $request->ip();
+            return $parts[0] ?? $request->ip() ?? '0.0.0.0';
         }
 
-        return $request->ip();
+        return $request->ip() ?? '0.0.0.0';
     }
 }
