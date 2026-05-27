@@ -22,25 +22,25 @@ class ListUsers extends ListRecords
                 ->form(UserResource::userFormSchema(isCreate: true))
                 ->visible(fn () => auth()->user()?->hasRole('super-admin'))
                 ->action(function (array $data): void {
-                /** @var User $user */
-                $user = User::create([
-                    'username' => $data['username'],
-                    'name' => $data['name'],
-                    'password' => $data['password'], // already hashed by dehydrateStateUsing
-                ]);
+                    /** @var User $user */
+                    $user = User::create([
+                        'username' => $data['username'],
+                        'name' => $data['name'],
+                        'password' => $data['password'], // already hashed by dehydrateStateUsing
+                    ]);
 
-                $user->syncRoles($data['roles'] ?? []);
+                    $user->syncRoles($data['roles'] ?? []);
 
-                activity('users')
-                    ->causedBy(auth()->user())
-                    ->performedOn($user)
-                    ->withProperties([
-                        'username' => $user->username,
-                        'roles' => $user->getRoleNames()->values()->all(),
-                    ])
-                    ->log('user.created');
-            })
-                ->successNotificationTitle('User created')
+                    activity('users')
+                        ->causedBy(auth()->user())
+                        ->performedOn($user)
+                        ->withProperties([
+                            'username' => $user->username,
+                            'roles' => $user->getRoleNames()->values()->all(),
+                        ])
+                        ->log('user.created');
+                })
+                ->successNotificationTitle('User created'),
         ];
     }
 }

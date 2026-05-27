@@ -2,31 +2,35 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
-use Filament\Tables;
-use Filament\Forms\Form;
-use Filament\Tables\Table;
-use Filament\Resources\Resource;
-use Spatie\Permission\Models\Role;
-use Illuminate\Support\Facades\Hash;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Form;
 use Filament\Notifications\Notification;
+use Filament\Resources\Resource;
 use Filament\Support\Exceptions\Halt;
+use Filament\Tables;
 use Filament\Tables\Columns\TagsColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
-use Filament\Forms\Components\TextInput;
-use App\Filament\Resources\UserResource\Pages;
+use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
+
     protected static ?string $navigationGroup = 'System';
+
     protected static ?string $navigationLabel = 'Users';
+
     protected static ?int $navigationSort = 4;
+
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
-        public static function userFormSchema(bool $isCreate = false): array
+    public static function userFormSchema(bool $isCreate = false): array
     {
         return [
             TextInput::make('username')
@@ -65,18 +69,19 @@ class UserResource extends Resource
                 ->searchable()
                 ->options(fn () => Role::query()->pluck('name', 'name')->all())
                 ->afterStateHydrated(function (Select $component, ?User $record) {
-                    if (! $record) return;
+                    if (! $record) {
+                        return;
+                    }
                     $component->state($record->getRoleNames()->values()->all());
                 }),
 
         ];
     }
 
-
-            public static function form(Form $form): Form
-        {
-            return $form->schema(self::userFormSchema(isCreate: false));
-        }
+    public static function form(Form $form): Form
+    {
+        return $form->schema(self::userFormSchema(isCreate: false));
+    }
 
     public static function table(Table $table): Table
     {
@@ -89,96 +94,96 @@ class UserResource extends Resource
             ])
             ->actions([
                 Tables\Actions\Action::make('edit')
-            ->label('Edit')
-            ->icon('heroicon-o-pencil-square')
-            ->form(fn (User $record) => self::userFormSchema(isCreate: false))
-            ->fillForm(function (User $record): array {
-                return [
-                    'username' => $record->username,
-                    'name' => $record->name,
-                    'roles' => $record->getRoleNames()->values()->all(),
-                    // password intentionally blank
-                ];
-            })
-            ->action(function (User $record, array $data): void {
-            $beforeRoles = $record->getRoleNames()->values()->all();
+                    ->label('Edit')
+                    ->icon('heroicon-o-pencil-square')
+                    ->form(fn (User $record) => self::userFormSchema(isCreate: false))
+                    ->fillForm(function (User $record): array {
+                        return [
+                            'username' => $record->username,
+                            'name' => $record->name,
+                            'roles' => $record->getRoleNames()->values()->all(),
+                            // password intentionally blank
+                        ];
+                    })
+                    ->action(function (User $record, array $data): void {
+                        $beforeRoles = $record->getRoleNames()->values()->all();
 
-            $record->update([
-                'username' => $data['username'],
-                'name' => $data['name'],
-                ...(filled($data['password'] ?? null) ? ['password' => $data['password']] : []),
-            ]);
+                        $record->update([
+                            'username' => $data['username'],
+                            'name' => $data['name'],
+                            ...(filled($data['password'] ?? null) ? ['password' => $data['password']] : []),
+                        ]);
 
-            $incomingRoles = $data['roles'] ?? [];
+                        $incomingRoles = $data['roles'] ?? [];
 
-            $wasSuperAdmin = $record->isSuperAdmin();
-            $willBeSuperAdmin = in_array('super-admin', $incomingRoles, true);
+                        $wasSuperAdmin = $record->isSuperAdmin();
+                        $willBeSuperAdmin = in_array('super-admin', $incomingRoles, true);
 
-            // If this user is currently super-admin and you are removing it...
-            if ($wasSuperAdmin && ! $willBeSuperAdmin && User::superAdminCount() <= 1) {
-                Notification::make()
-                    ->title('Action blocked')
-                    ->body('You cannot remove the last super-admin role.')
-                    ->danger()
-                    ->send();
+                        // If this user is currently super-admin and you are removing it...
+                        if ($wasSuperAdmin && ! $willBeSuperAdmin && User::superAdminCount() <= 1) {
+                            Notification::make()
+                                ->title('Action blocked')
+                                ->body('You cannot remove the last super-admin role.')
+                                ->danger()
+                                ->send();
 
-                throw new Halt();
-            }
+                            throw new Halt;
+                        }
 
-            $record->syncRoles($incomingRoles);
-            $afterRoles = $record->getRoleNames()->values()->all();
+                        $record->syncRoles($incomingRoles);
+                        $afterRoles = $record->getRoleNames()->values()->all();
 
-            activity('users')
-                ->causedBy(auth()->user())
-                ->performedOn($record)
-                ->withProperties([
-                    'username' => $record->username,
-                    'before' => ['roles' => $beforeRoles],
-                    'after' => ['roles' => $afterRoles],
-                ])
-                ->log($beforeRoles !== $afterRoles ? 'user.roles_updated' : 'user.updated');
-        })
-                ->modalHeading('Edit User')
-                ->modalWidth('lg'),
+                        activity('users')
+                            ->causedBy(auth()->user())
+                            ->performedOn($record)
+                            ->withProperties([
+                                'username' => $record->username,
+                                'before' => ['roles' => $beforeRoles],
+                                'after' => ['roles' => $afterRoles],
+                            ])
+                            ->log($beforeRoles !== $afterRoles ? 'user.roles_updated' : 'user.updated');
+                    })
+                    ->modalHeading('Edit User')
+                    ->modalWidth('lg'),
 
                 Tables\Actions\DeleteAction::make()
-                ->before(function (User $record) {
-                    if ($record->isSuperAdmin() && User::superAdminCount() <= 1) {
-                        \Filament\Notifications\Notification::make()
-                            ->title('Action blocked')
-                            ->body('You cannot delete the last super-admin.')
-                            ->danger()
-                            ->send();
+                    ->before(function (User $record) {
+                        if ($record->isSuperAdmin() && User::superAdminCount() <= 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Action blocked')
+                                ->body('You cannot delete the last super-admin.')
+                                ->danger()
+                                ->send();
 
-                        throw new \Filament\Support\Exceptions\Halt();
-                    }
-                })
-                ->after(function (User $record) {
-                    activity('users')
-                        ->causedBy(auth()->user())
-                        ->performedOn($record)
-                        ->withProperties([
-                            'username' => $record->username,
-                            'roles' => $record->getRoleNames()->values()->all(),
-                        ])
-                        ->log('user.deleted');
-                })
-                        ])
+                            throw new \Filament\Support\Exceptions\Halt;
+                        }
+                    })
+                    ->after(function (User $record) {
+                        activity('users')
+                            ->causedBy(auth()->user())
+                            ->performedOn($record)
+                            ->withProperties([
+                                'username' => $record->username,
+                                'roles' => $record->getRoleNames()->values()->all(),
+                            ])
+                            ->log('user.deleted');
+                    }),
+            ])
             ->bulkActions([
-            Tables\Actions\DeleteBulkAction::make()
-            ->before(function (Tables\Actions\DeleteBulkAction $action) {
-            // Capture usernames before deletion
-            $records = $action->getRecords();
+                Tables\Actions\DeleteBulkAction::make()
+                    ->before(function (Tables\Actions\DeleteBulkAction $action) {
+                        // Capture usernames before deletion
+                        $records = $action->getRecords();
 
-            activity('users')
-                ->causedBy(auth()->user())
-                ->withProperties([
-                    'count' => $records->count(),
-                    'usernames' => $records->pluck('username')->values()->all(),
-                ])
-                ->log('user.bulk_deleted');
-                }),
-        ]);
+                        activity('users')
+                            ->causedBy(auth()->user())
+                            ->withProperties([
+                                'count' => $records->count(),
+                                'usernames' => $records->pluck('username')->values()->all(),
+                            ])
+                            ->log('user.bulk_deleted');
+                    }),
+            ]);
     }
 
     // --- Authorization gates for the resource ---
@@ -216,4 +221,3 @@ class UserResource extends Resource
         ];
     }
 }
-

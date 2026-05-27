@@ -7,17 +7,18 @@ use App\Models\PublishToken;
 use App\Services\MediamtxJwtIssuer;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
-use Filament\Notifications\Notification;
 use Livewire\Component as LivewireComponent;
 
 class PublishTokenResource extends Resource
 {
     protected static ?string $model = PublishToken::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-key';
+
     protected static ?string $navigationLabel = 'Publish Tokens';
 
     public static function publishTokenFormSchema(): array
@@ -68,23 +69,58 @@ class PublishTokenResource extends Resource
             ])
             ->actions([
                 Tables\Actions\Action::make('copy_token')
-                ->label('Copy Token')
-                ->icon('heroicon-o-clipboard-document')
-                ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator', 'monitoring']) ?? false)
-                ->action(function (PublishToken $record, LivewireComponent $livewire) {
-                    // Optional: enforce enabled
-                    if (! $record->is_enabled) {
+                    ->label('Copy Token')
+                    ->icon('heroicon-o-clipboard-document')
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator', 'monitoring']) ?? false)
+                    ->action(function (PublishToken $record, LivewireComponent $livewire) {
+                        // Optional: enforce enabled
+                        if (! $record->is_enabled) {
+                            Notification::make()
+                                ->title('Token is disabled')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        // Ensure token exists (issue if missing)
+                        if (! filled($record->token)) {
+                            $issuer = app(MediamtxJwtIssuer::class);
+                            $issued = $issuer->issuePublishToken($record->path, noExpiry: true);
+
+                            $record->update([
+                                'token' => $issued['token'],
+                                'last_generated_at' => now(),
+                            ]);
+
+                            activity('security')
+                                ->causedBy(auth()->user())
+                                ->performedOn($record)
+                                ->withProperties(['path' => $record->path])
+                                ->log('publish_token.issued');
+                        }
+
+                        // Dispatch browser event to copy
+                        $livewire->dispatch('clipboard-copy', text: 'Bearer '.$record->token);
+
+                        activity('security')
+                            ->causedBy(auth()->user())
+                            ->performedOn($record)
+                            ->withProperties(['path' => $record->path])
+                            ->log('publish_token.copied');
+
                         Notification::make()
-                            ->title('Token is disabled')
-                            ->danger()
+                            ->title('Token copied to clipboard')
+                            ->success()
                             ->send();
-
-                        return;
-                    }
-
-                    // Ensure token exists (issue if missing)
-                    if (! filled($record->token)) {
-                        $issuer = app(MediamtxJwtIssuer::class);
+                    }),
+                Tables\Actions\Action::make('rotate')
+                    ->label('Rotate')
+                    ->icon('heroicon-o-arrow-path')
+                    ->requiresConfirmation()
+                    ->modalHeading('Rotate publish token?')
+                    ->action(function (\App\Models\PublishToken $record) {
+                        $issuer = app(\App\Services\MediamtxJwtIssuer::class);
                         $issued = $issuer->issuePublishToken($record->path, noExpiry: true);
 
                         $record->update([
@@ -96,44 +132,9 @@ class PublishTokenResource extends Resource
                             ->causedBy(auth()->user())
                             ->performedOn($record)
                             ->withProperties(['path' => $record->path])
-                            ->log('publish_token.issued');
-                    }
-
-                    // Dispatch browser event to copy
-                    $livewire->dispatch('clipboard-copy', text: 'Bearer ' . $record->token);
-
-                    activity('security')
-                        ->causedBy(auth()->user())
-                        ->performedOn($record)
-                        ->withProperties(['path' => $record->path])
-                        ->log('publish_token.copied');
-
-                    Notification::make()
-                        ->title('Token copied to clipboard')
-                        ->success()
-                        ->send();
-                }),
-                Tables\Actions\Action::make('rotate')
-                ->label('Rotate')
-                ->icon('heroicon-o-arrow-path')
-                ->requiresConfirmation()
-                ->modalHeading('Rotate publish token?')
-                ->action(function (\App\Models\PublishToken $record) {
-                    $issuer = app(\App\Services\MediamtxJwtIssuer::class);
-                    $issued = $issuer->issuePublishToken($record->path, noExpiry: true);
-
-                    $record->update([
-                        'token' => $issued['token'],
-                        'last_generated_at' => now(),
-                    ]);
-
-                    activity('security')
-                        ->causedBy(auth()->user())
-                        ->performedOn($record)
-                        ->withProperties(['path' => $record->path])
-                        ->log('publish_token.rotated');
-                })
-                ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false),
+                            ->log('publish_token.rotated');
+                    })
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false),
 
                 // Edit modal
                 Tables\Actions\Action::make('edit')

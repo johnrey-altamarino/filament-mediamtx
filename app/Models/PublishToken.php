@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PublishToken extends Model
 {
     protected $fillable = [
-        'name','path','token','is_enabled','created_by_user_id','last_generated_at','notes',
+        'name', 'path', 'token', 'is_enabled', 'created_by_user_id', 'last_generated_at', 'notes',
     ];
 
     protected $casts = [

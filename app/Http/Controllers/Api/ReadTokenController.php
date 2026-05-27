@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AllowedReferrer;
 use App\Models\BlockedIp;
+use App\Models\ViewerRequest;
 use Firebase\JWT\JWT;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use App\Models\ViewerRequest;
 use Jenssegers\Agent\Agent;
 
 class ReadTokenController extends Controller
@@ -89,7 +89,6 @@ class ReadTokenController extends Controller
             $this->logViewerRequest($request, $ip, $path, true, null);
         }
 
-
         return response()->json([
             'id' => $payload['jti'],
             'token' => $jwt,
@@ -114,22 +113,25 @@ class ReadTokenController extends Controller
     }
 
     private function clientIp(Request $request): ?string
-        {
-            // Cloudflare (when you deploy behind CF)
-            $cf = $request->headers->get('cf-connecting-ip');
-            if ($cf) return $cf;
-
-            // Proxies
-            $xff = $request->headers->get('x-forwarded-for');
-            if ($xff) {
-                $parts = array_map('trim', explode(',', $xff));
-                return $parts[0] ?? $request->ip();
-            }
-
-            return $request->ip();
+    {
+        // Cloudflare (when you deploy behind CF)
+        $cf = $request->headers->get('cf-connecting-ip');
+        if ($cf) {
+            return $cf;
         }
 
-        private function logViewerRequest(
+        // Proxies
+        $xff = $request->headers->get('x-forwarded-for');
+        if ($xff) {
+            $parts = array_map('trim', explode(',', $xff));
+
+            return $parts[0] ?? $request->ip();
+        }
+
+        return $request->ip();
+    }
+
+    private function logViewerRequest(
         Request $request,
         string $ip,
         string $path,
@@ -139,14 +141,19 @@ class ReadTokenController extends Controller
         $ua = (string) $request->userAgent();
         $referer = (string) $request->headers->get('referer', '');
 
-        $agent = new Agent();
+        $agent = new Agent;
         $agent->setUserAgent($ua);
 
         $device = 'Unknown';
-        if ($agent->isDesktop()) $device = 'Desktop';
-        elseif ($agent->isTablet()) $device = 'Tablet';
-        elseif ($agent->isMobile()) $device = 'Mobile';
-        elseif ($agent->isRobot()) $device = 'Bot';
+        if ($agent->isDesktop()) {
+            $device = 'Desktop';
+        } elseif ($agent->isTablet()) {
+            $device = 'Tablet';
+        } elseif ($agent->isMobile()) {
+            $device = 'Mobile';
+        } elseif ($agent->isRobot()) {
+            $device = 'Bot';
+        }
 
         ViewerRequest::create([
             'ip' => $ip,
@@ -168,7 +175,9 @@ class ReadTokenController extends Controller
     private function shouldLogViewerRequest(Request $request, string $ip, string $path): bool
     {
         $seconds = (int) config('services.viewer_log.throttle_seconds', 10);
-        if ($seconds <= 0) return true;
+        if ($seconds <= 0) {
+            return true;
+        }
 
         $mode = (string) config('services.viewer_log.throttle_mode', 'ip_path_ua');
 
@@ -181,11 +190,10 @@ class ReadTokenController extends Controller
             default => [$ip, $path, $ua], // ip_path_ua
         };
 
-        $key = 'vr:log:' . sha1(implode('|', $keyParts));
+        $key = 'vr:log:'.sha1(implode('|', $keyParts));
 
         // Cache:add returns true only if key did NOT exist.
         // So we only log once per TTL window for that fingerprint.
         return cache()->add($key, 1, now()->addSeconds($seconds));
     }
-
 }

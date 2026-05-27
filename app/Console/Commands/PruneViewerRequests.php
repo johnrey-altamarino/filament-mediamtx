@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 class PruneViewerRequests extends Command
 {
     protected $signature = 'viewer-requests:prune {--days=7}';
+
     protected $description = 'Delete viewer_requests older than N days';
 
     public function handle(): int
@@ -20,6 +21,7 @@ class PruneViewerRequests extends Command
             ->delete();
 
         $this->info("Deleted {$deleted} viewer_requests older than {$days} days.");
+
         return self::SUCCESS;
     }
 }

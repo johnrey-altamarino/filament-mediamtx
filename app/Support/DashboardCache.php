@@ -18,7 +18,8 @@ class DashboardCache
     public static function key(string $name, array $parts = []): string
     {
         // stable cache key with params
-        $suffix = $parts ? ':' . sha1(json_encode($parts)) : '';
+        $suffix = $parts ? ':'.sha1(json_encode($parts)) : '';
+
         return "dash:{$name}{$suffix}";
     }
 }

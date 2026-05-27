@@ -9,14 +9,17 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 
 class AllowedReferrerResource extends Resource
 {
     protected static ?string $model = AllowedReferrer::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-link';
+
     protected static ?string $navigationLabel = 'Allowed Referrers';
+
     protected static ?int $navigationSort = 2;
+
     protected static ?string $navigationGroup = 'Control';
 
     public static function referrerFormSchema(): array

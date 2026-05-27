@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\MediamtxSession;
-use App\Services\MediamtxApi;
 
 class MediamtxSessionRefresher
 {
@@ -46,6 +45,7 @@ class MediamtxSessionRefresher
     {
         if (str_starts_with($remoteAddr, '[')) {
             $end = strpos($remoteAddr, ']');
+
             return $end !== false ? substr($remoteAddr, 1, $end - 1) : $remoteAddr;
         }
 

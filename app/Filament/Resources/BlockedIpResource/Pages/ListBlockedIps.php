@@ -38,7 +38,7 @@ class ListBlockedIps extends ListRecords
                         ])
                         ->log('ip.blocked');
                 })
-                ->successNotificationTitle('IP blocked')
+                ->successNotificationTitle('IP blocked'),
         ];
     }
 }

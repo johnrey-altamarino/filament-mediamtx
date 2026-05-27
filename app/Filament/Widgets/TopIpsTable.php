@@ -13,7 +13,9 @@ use Illuminate\Database\Eloquent\Builder;
 class TopIpsTable extends BaseWidget
 {
     protected static ?string $heading = 'Top IPs (Last 12 Hours)';
+
     protected static ?int $sort = 30;
+
     protected static ?string $pollingInterval = '60s';
 
     protected int|string|array $columnSpan = 'md';
@@ -60,7 +62,7 @@ class TopIpsTable extends BaseWidget
                     ->icon('heroicon-o-no-symbol')
                     ->requiresConfirmation()
                     ->visible(fn ($record) => (int) ($record->is_blocked ?? 0) === 0
-                        && (auth()->user()?->hasAnyRole(['super-admin','moderator']) ?? false))
+                        && (auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false))
                     ->action(function ($record) {
                         BlockedIp::firstOrCreate(
                             ['ip' => $record->ip],
@@ -92,23 +94,23 @@ class TopIpsTable extends BaseWidget
             ]);
     }
 
-        private function getQuery(): Builder
-        {
-            $since = now()->subHours(12);
+    private function getQuery(): Builder
+    {
+        $since = now()->subHours(12);
 
-            return ViewerRequest::query()
-                ->where('requested_at', '>=', $since)
-                ->where('allowed', true)
-                ->selectRaw('MIN(id) as id')
-                ->selectRaw('ip')
-                ->selectRaw('COUNT(*) as requests')
-                ->selectRaw('COUNT(DISTINCT path) as unique_streams')
-                ->selectRaw('COUNT(DISTINCT user_agent) as unique_devices')
-                ->selectRaw('EXISTS(
+        return ViewerRequest::query()
+            ->where('requested_at', '>=', $since)
+            ->where('allowed', true)
+            ->selectRaw('MIN(id) as id')
+            ->selectRaw('ip')
+            ->selectRaw('COUNT(*) as requests')
+            ->selectRaw('COUNT(DISTINCT path) as unique_streams')
+            ->selectRaw('COUNT(DISTINCT user_agent) as unique_devices')
+            ->selectRaw('EXISTS(
                     SELECT 1 FROM blocked_ips b
                     WHERE b.ip = viewer_requests.ip
                 ) as is_blocked')
-                ->groupBy('ip')
-                ->orderByRaw('COUNT(*) DESC');   // 👈 move sorting here
-        }
+            ->groupBy('ip')
+            ->orderByRaw('COUNT(*) DESC');   // 👈 move sorting here
+    }
 }

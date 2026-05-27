@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class AllowedReferrer extends Model
 {
-
     public function matches(string $referer): bool
     {
         if (! $this->is_enabled) {
@@ -20,9 +19,9 @@ class AllowedReferrer extends Model
         // Wildcard mode: https://*.armtech.one
         $pattern = preg_quote($this->pattern, '~');
         $pattern = str_replace('\*', '.*', $pattern);
-        $pattern = '^' . $pattern . '(/|$)';
+        $pattern = '^'.$pattern.'(/|$)';
 
-        return preg_match('~' . $pattern . '~i', $referer) === 1;
+        return preg_match('~'.$pattern.'~i', $referer) === 1;
     }
 
     protected $fillable = [

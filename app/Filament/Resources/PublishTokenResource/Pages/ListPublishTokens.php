@@ -42,7 +42,7 @@ class ListPublishTokens extends ListRecords
                         ->withProperties(['path' => $record->path])
                         ->log('publish_token.created');
                 })
-                ->successNotificationTitle('Publish token created')
+                ->successNotificationTitle('Publish token created'),
         ];
     }
 }

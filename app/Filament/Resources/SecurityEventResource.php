@@ -13,9 +13,13 @@ class SecurityEventResource extends Resource
     protected static ?string $model = Activity::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-shield-check';
+
     protected static ?string $navigationLabel = 'Security Events';
+
     protected static ?string $navigationGroup = 'Control';
+
     protected static ?string $slug = 'security-events';
+
     protected static ?int $navigationSort = 25;
 
     public static function getEloquentQuery(): Builder
@@ -75,7 +79,7 @@ class SecurityEventResource extends Resource
                     ->icon('heroicon-o-no-symbol')
                     ->requiresConfirmation()
                     ->visible(fn (Activity $record) => filled(data_get($record->properties, 'ip'))
-                        && (auth()->user()?->hasAnyRole(['super-admin','moderator']) ?? false))
+                        && (auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false))
                     ->action(function (Activity $record) {
                         $ip = (string) data_get($record->properties, 'ip');
 

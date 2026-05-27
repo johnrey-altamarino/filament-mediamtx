@@ -14,10 +14,15 @@ use Illuminate\Database\Eloquent\Model;
 class BlockedIpResource extends Resource
 {
     protected static ?string $model = BlockedIp::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-no-symbol';
+
     protected static ?string $navigationGroup = 'Control';
+
     protected static ?int $navigationSort = 2;
+
     protected static ?string $modelLabel = 'Blocked IP';
+
     protected static ?string $pluralModelLabel = 'Blocked IPs';
 
     public static function blockedIpFormSchema(): array

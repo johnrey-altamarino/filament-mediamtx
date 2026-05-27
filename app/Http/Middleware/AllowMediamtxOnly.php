@@ -8,20 +8,20 @@ use Illuminate\Http\Request;
 class AllowMediamtxOnly
 {
     public function handle(Request $request, Closure $next)
-{
-    // Real client IP (Cloudflare safe)
-    $ip = $request->header('cf-connecting-ip') ?? $request->ip() ?? $request->getClientIp('X-Forwarded-For') ?? $request->server('REMOTE_ADDR');
+    {
+        // Real client IP (Cloudflare safe)
+        $ip = $request->header('cf-connecting-ip') ?? $request->ip() ?? $request->getClientIp('X-Forwarded-For') ?? $request->server('REMOTE_ADDR');
 
-    $allowedIps = collect(explode(',', config('services.mediamtx.allowed_ips', '')))
-        ->map(fn ($ip) => trim($ip))
-        ->filter()
-        ->values()
-        ->all();
+        $allowedIps = collect(explode(',', config('services.mediamtx.allowed_ips', '')))
+            ->map(fn ($ip) => trim($ip))
+            ->filter()
+            ->values()
+            ->all();
 
-    if (! in_array($ip, $allowedIps, true)) {
-        abort(403);
+        if (! in_array($ip, $allowedIps, true)) {
+            abort(403);
+        }
+
+        return $next($request);
     }
-
-    return $next($request);
-}
 }

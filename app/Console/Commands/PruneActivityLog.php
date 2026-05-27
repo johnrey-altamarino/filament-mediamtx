@@ -8,6 +8,7 @@ use Spatie\Activitylog\Models\Activity;
 class PruneActivityLog extends Command
 {
     protected $signature = 'activity-log:prune {--days=30}';
+
     protected $description = 'Delete activity_log entries older than N days';
 
     public function handle(): int
@@ -20,6 +21,7 @@ class PruneActivityLog extends Command
             ->delete();
 
         $this->info("Deleted {$deleted} activity_log rows older than {$days} days.");
+
         return self::SUCCESS;
     }
 }

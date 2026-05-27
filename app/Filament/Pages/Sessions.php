@@ -9,16 +9,19 @@ use App\Services\MediamtxSessionRefresher;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Tables;
-use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
 
 class Sessions extends Page implements HasTable
 {
     use InteractsWithTable;
 
     protected static ?string $navigationIcon = 'heroicon-o-signal';
+
     protected static string $view = 'filament.pages.sessions';
+
     protected static ?string $navigationLabel = 'Live Sessions';
+
     protected static ?string $navigationGroup = 'Control';
 
     public function mount(): void
@@ -77,6 +80,7 @@ class Sessions extends Page implements HasTable
                     ->action(function (MediamtxSession $record) {
                         if (! $record->ip) {
                             Notification::make()->title('No IP found')->danger()->send();
+
                             return;
                         }
 

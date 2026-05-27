@@ -41,19 +41,19 @@ return [
     ],
 
     'mediamtx' => [
-        'api_base_url'   => env('MEDIAMTX_API_BASE_URL', 'http://127.0.0.1:9997'),
-        'api_user'       => env('MEDIAMTX_API_USER'),
-        'api_pass'       => env('MEDIAMTX_API_PASS'),
-        'api_timeout'    => (int) env('MEDIAMTX_API_TIMEOUT', 3),
-        'allowed_ips'    => env('MEDIAMTX_ALLOWED_IPS', ''),
+        'api_base_url' => env('MEDIAMTX_API_BASE_URL', 'http://127.0.0.1:9997'),
+        'api_user' => env('MEDIAMTX_API_USER'),
+        'api_pass' => env('MEDIAMTX_API_PASS'),
+        'api_timeout' => (int) env('MEDIAMTX_API_TIMEOUT', 3),
+        'allowed_ips' => env('MEDIAMTX_ALLOWED_IPS', ''),
     ],
 
     'mediamtx_jwt' => [
         'private_key_path' => env('JWT_PRIVATE_KEY_PATH', 'storage/app/jwt/private.pem'),
-        'public_key_path'  => env('JWT_PUBLIC_KEY_PATH', 'storage/app/jwt/public.pem'),
-        'kid'              => env('JWT_KID', 'mediamtx-1'),
-        'iss'              => env('JWT_ISSUER'),
-        'ttl'              => (int) env('JWT_TTL_SECONDS', 60),
+        'public_key_path' => env('JWT_PUBLIC_KEY_PATH', 'storage/app/jwt/public.pem'),
+        'kid' => env('JWT_KID', 'mediamtx-1'),
+        'iss' => env('JWT_ISSUER'),
+        'ttl' => (int) env('JWT_TTL_SECONDS', 60),
     ],
 
 ];

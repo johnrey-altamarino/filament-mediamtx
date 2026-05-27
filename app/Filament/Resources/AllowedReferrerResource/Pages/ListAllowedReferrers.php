@@ -41,7 +41,7 @@ class ListAllowedReferrers extends ListRecords
                         ])
                         ->log('referrer.added');
                 })
-                ->successNotificationTitle('Referrer added')
+                ->successNotificationTitle('Referrer added'),
         ];
     }
 }
