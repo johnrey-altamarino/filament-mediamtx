@@ -123,4 +123,21 @@ class SessionNotifierTest extends TestCase
         // started + ended = 2; they share (ip, path) but use different dedupe namespaces.
         $this->assertSame(2, $admin->notifications()->count());
     }
+
+    public function test_publish_ended_event_creates_one_notification_per_admin_recipient(): void
+    {
+        $admin = $this->makeUserWithRole('super-admin');
+
+        $event = new SessionEvent('publish', 's-1', 'live/cam1', '1.2.3.4', 'publish', '2026-05-28T10:00:00+00:00');
+        $diff = new SessionDiff(started: [], ended: [$event]);
+
+        app(SessionNotifier::class)->dispatch($diff);
+
+        $this->assertSame(1, $admin->notifications()->count());
+
+        $payload = $admin->notifications()->first()->data;
+        $title = $payload['title'] ?? '';
+        $this->assertStringContainsString('Publisher ended on', $title);
+        $this->assertStringContainsString('live/cam1', $title);
+    }
 }
