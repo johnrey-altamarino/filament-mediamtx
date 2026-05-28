@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AllowedReferrer;
 use App\Models\BlockedIp;
-use App\Models\PlayerSetting;
 use App\Services\ClientIpResolver;
 use App\Services\MediamtxJwtIssuer;
 use App\Services\ViewerRequestLogger;
@@ -75,13 +74,10 @@ class ReadTokenController extends Controller
 
     private function refererAllowed(string $referer): bool
     {
-        $allowDirect = cache()->remember(
-            'player_setting:allow_direct_playback',
-            now()->addSeconds(30),
-            fn () => (bool) PlayerSetting::get('allow_direct_playback', false)
-        );
-
-        if ($allowDirect && str_starts_with($referer, rtrim((string) config('app.url'), '/'))) {
+        // The player page always fetches tokens from its own origin (APP_URL/play),
+        // whether loaded directly or in an iframe. Iframe protection lives in
+        // PlayerAccessMiddleware; direct-playback control lives in PlayerController.
+        if (str_starts_with($referer, rtrim((string) config('app.url'), '/'))) {
             return true;
         }
 
