@@ -7,6 +7,7 @@ use App\Models\User;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -57,7 +58,7 @@ class SessionNotifier
 
         Notification::make()
             ->title("{$titleVerb} {$event->path}")
-            ->body("IP {$event->ip}")
+            ->body("IP {$event->ip} · " . Carbon::parse($event->occurredAt)->diffForHumans())
             ->icon('heroicon-o-signal')
             ->color($color)
             ->actions([
@@ -95,11 +96,9 @@ class SessionNotifier
     private function passesReadFloodCap(): bool
     {
         $minuteKey = 'notify:read:flood:'.now()->format('YmdHi');
+
+        Cache::add($minuteKey, 0, 65);
         $count = Cache::increment($minuteKey);
-        if ($count === 1) {
-            // increment created the key; give it a 65s TTL so it expires after the minute.
-            Cache::put($minuteKey, 1, 65);
-        }
 
         if ($count > self::READ_FLOOD_CAP_PER_MINUTE) {
             $logGate = 'notify:read:flood:logged:'.now()->format('YmdHi');
