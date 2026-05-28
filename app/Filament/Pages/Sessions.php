@@ -5,13 +5,11 @@ namespace App\Filament\Pages;
 use App\Models\BlockedIp;
 use App\Models\MediamtxSession;
 use App\Services\MediamtxApi;
-use App\Services\MediamtxSessionRefresher;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
-use Illuminate\Support\Facades\Log;
 
 class Sessions extends Page implements HasTable
 {
@@ -25,22 +23,13 @@ class Sessions extends Page implements HasTable
 
     protected static ?string $navigationGroup = 'Control';
 
-    public function mount(): void
-    {
-        $this->refreshSessions();
-    }
-
     public function refreshSessions(): void
     {
-        try {
-            app(MediamtxSessionRefresher::class)->refresh();
-        } catch (\Throwable $e) {
-            Log::warning('Failed to refresh MediaMTX sessions', ['exception' => $e]);
-            Notification::make()
-                ->title('Could not refresh sessions: MediaMTX API unreachable')
-                ->danger()
-                ->send();
-        }
+        // The sessions:refresh-and-notify scheduled command keeps mediamtx_sessions
+        // fresh every 10 seconds. Calling refresh() here would race with the command
+        // and cause new sessions to be upserted before the command can detect them
+        // as "started" for notifications. The Livewire poll re-renders the table
+        // from the DB, which is kept current by the scheduler.
     }
 
     public function table(Tables\Table $table): Tables\Table
