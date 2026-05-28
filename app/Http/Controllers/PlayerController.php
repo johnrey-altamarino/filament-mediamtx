@@ -19,8 +19,8 @@ class PlayerController extends Controller
         );
 
         return view('player', [
-            'whepBaseUrl'     => (string) config('services.mediamtx.stream_base_url', ''),
-            'tokenEndpoint'   => url('/api/read'),
+            'whepBaseUrl' => (string) config('services.mediamtx.stream_base_url', ''),
+            'tokenEndpoint' => url('/api/read'),
             'playbackEnabled' => $isEmbed || $directAllowed,
         ]);
     }

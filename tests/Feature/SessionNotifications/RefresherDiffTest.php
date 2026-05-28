@@ -36,11 +36,11 @@ class RefresherDiffTest extends TestCase
         $api->shouldReceive('listWebRtcSessions')->andReturn([
             'items' => [
                 ['id' => 's-old-pub', 'state' => 'publish', 'path' => 'live/cam1',
-                 'query' => '', 'remoteAddr' => '5.6.7.8:1234',
-                 'created' => '2026-05-28T09:00:00Z', 'bytesReceived' => 100, 'bytesSent' => 0],
+                    'query' => '', 'remoteAddr' => '5.6.7.8:1234',
+                    'created' => '2026-05-28T09:00:00Z', 'bytesReceived' => 100, 'bytesSent' => 0],
                 ['id' => 's-new-read', 'state' => 'read', 'path' => 'live/cam1',
-                 'query' => '', 'remoteAddr' => '9.9.9.9:5555',
-                 'created' => '2026-05-28T10:00:00Z', 'bytesReceived' => 0, 'bytesSent' => 50],
+                    'query' => '', 'remoteAddr' => '9.9.9.9:5555',
+                    'created' => '2026-05-28T10:00:00Z', 'bytesReceived' => 0, 'bytesSent' => 50],
             ],
         ]);
 
@@ -63,8 +63,8 @@ class RefresherDiffTest extends TestCase
         $api->shouldReceive('listWebRtcSessions')->andReturn([
             'items' => [
                 ['id' => 's-weird', 'state' => 'something-else', 'path' => 'live/cam1',
-                 'query' => '', 'remoteAddr' => '1.1.1.1:1',
-                 'created' => '2026-05-28T10:00:00Z', 'bytesReceived' => 0, 'bytesSent' => 0],
+                    'query' => '', 'remoteAddr' => '1.1.1.1:1',
+                    'created' => '2026-05-28T10:00:00Z', 'bytesReceived' => 0, 'bytesSent' => 0],
             ],
         ]);
 

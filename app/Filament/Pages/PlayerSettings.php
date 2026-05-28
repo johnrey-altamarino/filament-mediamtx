@@ -31,7 +31,7 @@ class PlayerSettings extends Page implements HasForms
     public function mount(): void
     {
         $this->form->fill([
-            'ip_mode'               => PlayerSetting::get('ip_mode', 'blacklist'),
+            'ip_mode' => PlayerSetting::get('ip_mode', 'blacklist'),
             'allow_direct_playback' => (bool) PlayerSetting::get('allow_direct_playback', false),
         ]);
     }

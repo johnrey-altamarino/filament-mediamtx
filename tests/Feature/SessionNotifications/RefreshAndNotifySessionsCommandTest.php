@@ -30,8 +30,8 @@ class RefreshAndNotifySessionsCommandTest extends TestCase
         $api->shouldReceive('listWebRtcSessions')->andReturn([
             'items' => [
                 ['id' => 's-new', 'state' => 'publish', 'path' => 'live/cam1',
-                 'query' => '', 'remoteAddr' => '1.2.3.4:1234',
-                 'created' => '2026-05-28T10:00:00Z', 'bytesReceived' => 0, 'bytesSent' => 0],
+                    'query' => '', 'remoteAddr' => '1.2.3.4:1234',
+                    'created' => '2026-05-28T10:00:00Z', 'bytesReceived' => 0, 'bytesSent' => 0],
             ],
         ]);
         $this->app->instance(MediamtxApi::class, $api);

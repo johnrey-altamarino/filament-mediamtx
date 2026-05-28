@@ -18,8 +18,8 @@ return new class extends Migration
 
         // Default: blacklist mode (allow all, block listed IPs)
         DB::table('player_settings')->insert([
-            'key'        => 'ip_mode',
-            'value'      => 'blacklist',
+            'key' => 'ip_mode',
+            'value' => 'blacklist',
             'created_at' => now(),
             'updated_at' => now(),
         ]);

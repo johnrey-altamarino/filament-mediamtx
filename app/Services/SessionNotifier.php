@@ -4,16 +4,17 @@ namespace App\Services;
 
 use App\Filament\Pages\Sessions;
 use App\Models\User;
+use Carbon\Carbon;
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class SessionNotifier
 {
     private const READ_DEDUPE_TTL_SECONDS = 300;
+
     private const READ_FLOOD_CAP_PER_MINUTE = 20;
 
     public function dispatch(SessionDiff $diff): void
@@ -58,7 +59,7 @@ class SessionNotifier
 
         Notification::make()
             ->title("{$titleVerb} {$event->path}")
-            ->body("IP {$event->ip} · " . Carbon::parse($event->occurredAt)->diffForHumans())
+            ->body("IP {$event->ip} · ".Carbon::parse($event->occurredAt)->diffForHumans())
             ->icon('heroicon-o-signal')
             ->color($color)
             ->actions([
