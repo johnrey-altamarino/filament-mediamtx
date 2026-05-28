@@ -10,7 +10,10 @@ class PlayerSetting extends Model
 
     protected static function booted(): void
     {
-        $flush = fn () => cache()->forget('player_settings');
+        $flush = function () {
+            cache()->forget('player_settings');
+            cache()->forget('player_setting:allow_direct_playback');
+        };
         static::created($flush);
         static::updated($flush);
         static::deleted($flush);

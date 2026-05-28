@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AllowedReferrer;
 use App\Models\BlockedIp;
+use App\Models\PlayerSetting;
 use App\Services\ClientIpResolver;
 use App\Services\MediamtxJwtIssuer;
 use App\Services\ViewerRequestLogger;
@@ -74,6 +75,16 @@ class ReadTokenController extends Controller
 
     private function refererAllowed(string $referer): bool
     {
+        $allowDirect = cache()->remember(
+            'player_setting:allow_direct_playback',
+            now()->addSeconds(30),
+            fn () => (bool) PlayerSetting::get('allow_direct_playback', false)
+        );
+
+        if ($allowDirect && str_starts_with($referer, rtrim((string) config('app.url'), '/'))) {
+            return true;
+        }
+
         $rules = cache()->remember(
             'allowed_referrers',
             now()->addSeconds(30),
