@@ -48,6 +48,7 @@ return [
         'allowed_ips' => env('MEDIAMTX_ALLOWED_IPS', ''),
         'stale_seconds' => (int) env('MEDIAMTX_SESSION_STALE_SECONDS', 20),
         'stream_base_url' => env('MEDIAMTX_STREAM_BASE_URL', 'https://stream.jrta.online'),
+        'trusted_proxies' => env('MEDIAMTX_TRUSTED_PROXIES', ''),
     ],
 
     'mediamtx_jwt' => [

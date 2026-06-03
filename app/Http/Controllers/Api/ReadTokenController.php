@@ -77,7 +77,11 @@ class ReadTokenController extends Controller
         // The player page always fetches tokens from its own origin (APP_URL/play),
         // whether loaded directly or in an iframe. Iframe protection lives in
         // PlayerAccessMiddleware; direct-playback control lives in PlayerController.
-        if (str_starts_with($referer, rtrim((string) config('app.url'), '/'))) {
+        //
+        // Compare origin (scheme + host + port) exactly. A prefix check would let a
+        // look-alike host such as https://app.example.com.evil.com pass the gate.
+        $appOrigin = $this->origin((string) config('app.url'));
+        if ($appOrigin !== null && $this->origin($referer) === $appOrigin) {
             return true;
         }
 
@@ -94,5 +98,24 @@ class ReadTokenController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Extract the origin (scheme://host[:port]) from a URL, lowercased,
+     * or null if it has no scheme/host.
+     */
+    private function origin(string $url): ?string
+    {
+        $parts = parse_url($url);
+        if (! isset($parts['scheme'], $parts['host'])) {
+            return null;
+        }
+
+        $origin = strtolower($parts['scheme']).'://'.strtolower($parts['host']);
+        if (isset($parts['port'])) {
+            $origin .= ':'.$parts['port'];
+        }
+
+        return $origin;
     }
 }
