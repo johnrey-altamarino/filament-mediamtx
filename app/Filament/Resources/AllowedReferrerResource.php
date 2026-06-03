@@ -20,7 +20,7 @@ class AllowedReferrerResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
-    protected static ?string $navigationGroup = 'Control';
+    protected static ?string $navigationGroup = 'Security Control';
 
     public static function referrerFormSchema(): array
     {

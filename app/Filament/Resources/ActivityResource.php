@@ -12,7 +12,7 @@ class ActivityResource extends Resource
 {
     protected static ?string $model = Activity::class;
 
-    protected static ?string $navigationGroup = 'System';
+    protected static ?string $navigationGroup = 'Activity';
 
     protected static ?string $navigationLabel = 'Activity Log';
 

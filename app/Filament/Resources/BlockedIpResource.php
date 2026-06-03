@@ -17,7 +17,7 @@ class BlockedIpResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-no-symbol';
 
-    protected static ?string $navigationGroup = 'Control';
+    protected static ?string $navigationGroup = 'Security Control';
 
     protected static ?int $navigationSort = 2;
 

@@ -22,8 +22,6 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static ?string $navigationGroup = 'System';
-
     protected static ?string $navigationLabel = 'Users';
 
     protected static ?int $navigationSort = 4;

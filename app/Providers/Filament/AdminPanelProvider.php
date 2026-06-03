@@ -55,7 +55,6 @@ class AdminPanelProvider extends PanelProvider
                 NavigationItem::make('Open Player')
                     ->url('/play', shouldOpenInNewTab: true)
                     ->icon('heroicon-o-play')
-                    ->group('Control')
                     ->sort(99),
             ])
             ->middleware([

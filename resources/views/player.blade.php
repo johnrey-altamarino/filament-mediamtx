@@ -2,11 +2,13 @@
 <html lang="en">
 <head>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="preconnect" href="https://stream.jrta.online">
+@if($whepBaseUrl)
+    <link rel="preconnect" href="{{ $whepBaseUrl }}" crossorigin>
+@endif
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>WebRTC Player</title>
-<script defer src="{{ asset('reader.js') }}"></script>
+@vite('resources/js/reader.js')
 <style>
   html, body {
     margin: 0;

@@ -17,7 +17,7 @@ class PlayerIpRuleResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-shield-check';
 
-    protected static ?string $navigationGroup = 'Control';
+    protected static ?string $navigationGroup = 'Security Control';
 
     protected static ?string $navigationLabel = 'Player IP Rules';
 

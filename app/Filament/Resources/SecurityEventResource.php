@@ -16,7 +16,7 @@ class SecurityEventResource extends Resource
 
     protected static ?string $navigationLabel = 'Security Events';
 
-    protected static ?string $navigationGroup = 'Control';
+    protected static ?string $navigationGroup = 'Activity';
 
     protected static ?string $slug = 'security-events';
 

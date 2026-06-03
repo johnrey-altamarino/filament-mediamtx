@@ -21,7 +21,6 @@ class Sessions extends Page implements HasTable
 
     protected static ?string $navigationLabel = 'Live Sessions';
 
-    protected static ?string $navigationGroup = 'Control';
 
     public function refreshSessions(): void
     {

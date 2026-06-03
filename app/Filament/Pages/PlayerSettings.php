@@ -20,9 +20,9 @@ class PlayerSettings extends Page implements HasForms
 
     protected static string $view = 'filament.pages.player-settings';
 
-    protected static ?string $navigationLabel = 'Player Access';
+    protected static ?string $navigationLabel = 'Settings';
 
-    protected static ?string $navigationGroup = 'Control';
+    protected static ?string $navigationGroup = 'Security Control';
 
     protected static ?int $navigationSort = 4;
 
@@ -55,7 +55,7 @@ class PlayerSettings extends Page implements HasForms
                     ->schema([
                         Toggle::make('allow_direct_playback')
                             ->label('Allow Direct Playback')
-                            ->helperText('When enabled, visiting /play directly (from this app) can issue tokens without an AllowedReferrer entry. When disabled, the player page still loads but will not play unless this app\'s URL is added to Allowed Referrers.'),
+                            ->helperText('When enabled, visiting /play directly (from this app) can issue tokens without needing to be embedded in an iframe. This is useful for testing or if you want to allow direct access from the app itself. When disabled, tokens can only be issued when the player is embedded in an iframe (e.g., from another site). Changing this setting takes effect within 30 seconds (cache TTL).'),
                     ]),
             ])
             ->statePath('data');

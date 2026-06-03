@@ -19,7 +19,7 @@ class PublishTokenResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-key';
 
-    protected static ?string $navigationLabel = 'Publish Tokens';
+    protected static ?string $navigationLabel = 'Publish Token Generator';
 
     public static function publishTokenFormSchema(): array
     {
