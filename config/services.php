@@ -49,6 +49,7 @@ return [
         'stale_seconds' => (int) env('MEDIAMTX_SESSION_STALE_SECONDS', 20),
         'stream_base_url' => env('MEDIAMTX_STREAM_BASE_URL', 'https://stream.jrta.online'),
         'trusted_proxies' => env('MEDIAMTX_TRUSTED_PROXIES', ''),
+        'webhook_secret' => env('MEDIAMTX_WEBHOOK_SECRET'),
     ],
 
     'mediamtx_jwt' => [
@@ -57,6 +58,13 @@ return [
         'kid' => env('JWT_KID', 'mediamtx-1'),
         'iss' => env('JWT_ISSUER'),
         'ttl' => (int) env('JWT_TTL_SECONDS', 60),
+    ],
+
+    'telegram' => [
+        'enabled' => (bool) env('TELEGRAM_ALERTS_ENABLED', false),
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'chat_id' => env('TELEGRAM_CHAT_ID'),
+        'timeout' => (int) env('TELEGRAM_TIMEOUT', 5),
     ],
 
 ];
