@@ -24,11 +24,7 @@ class Sessions extends Page implements HasTable
 
     public function refreshSessions(): void
     {
-        // The sessions:refresh-and-notify scheduled command keeps mediamtx_sessions
-        // fresh every 10 seconds. Calling refresh() here would race with the command
-        // and cause new sessions to be upserted before the command can detect them
-        // as "started" for notifications. The Livewire poll re-renders the table
-        // from the DB, which is kept current by the scheduler.
+        // TODO (Task 9): call syncSnapshot() to refresh sessions on-demand.
     }
 
     public function table(Tables\Table $table): Tables\Table
