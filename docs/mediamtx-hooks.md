@@ -24,29 +24,33 @@ value as `MEDIAMTX_WEBHOOK_SECRET`, and the URL host/port with where Laravel lis
 ```yaml
 pathDefaults:
   runOnReady: >
-    curl -fsS -m 4 -X POST http://127.0.0.1:8000/api/mediamtx/event
+    curl -fsS -m 4 -X POST https://platform.jrta.online/api/mediamtx/event
     -H "X-Webhook-Secret: SECRET"
     --data-urlencode "event=ready"
     --data-urlencode "path=$MTX_PATH"
     --data-urlencode "id=$MTX_SOURCE_ID"
+    --data-urlencode "type=$MTX_SOURCE_TYPE"
   runOnNotReady: >
-    curl -fsS -m 4 -X POST http://127.0.0.1:8000/api/mediamtx/event
+    curl -fsS -m 4 -X POST https://platform.jrta.online/api/mediamtx/event
     -H "X-Webhook-Secret: SECRET"
     --data-urlencode "event=notready"
     --data-urlencode "path=$MTX_PATH"
     --data-urlencode "id=$MTX_SOURCE_ID"
+    --data-urlencode "type=$MTX_SOURCE_TYPE"
   runOnRead: >
-    curl -fsS -m 4 -X POST http://127.0.0.1:8000/api/mediamtx/event
+    curl -fsS -m 4 -X POST https://platform.jrta.online/api/mediamtx/event
     -H "X-Webhook-Secret: SECRET"
     --data-urlencode "event=read"
     --data-urlencode "path=$MTX_PATH"
     --data-urlencode "id=$MTX_READER_ID"
+    --data-urlencode "type=$MTX_READER_TYPE"
   runOnUnread: >
-    curl -fsS -m 4 -X POST http://127.0.0.1:8000/api/mediamtx/event
+    curl -fsS -m 4 -X POST https://platform.jrta.online/api/mediamtx/event
     -H "X-Webhook-Secret: SECRET"
     --data-urlencode "event=unread"
     --data-urlencode "path=$MTX_PATH"
     --data-urlencode "id=$MTX_READER_ID"
+    --data-urlencode "type=$MTX_READER_TYPE"
 ```
 
 > Note: the exact env vars MediaMTX exposes to hooks vary by version. Confirm against

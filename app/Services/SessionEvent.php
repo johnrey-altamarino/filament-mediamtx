@@ -11,5 +11,6 @@ final class SessionEvent
         public readonly string $ip,
         public readonly string $state,
         public readonly string $occurredAt,
+        public readonly string $type = '',
     ) {}
 }

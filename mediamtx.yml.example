@@ -717,12 +717,12 @@ pathDefaults:
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
-  runOnReady: 'curl -fsS -m 4 -X POST https://platform.jrta.online/api/mediamtx/event -H "X-Webhook-Secret: YOUR_WEBHOOK_SECRET" --data-urlencode "event=ready" --data-urlencode "path=$MTX_PATH" --data-urlencode "id=$MTX_SOURCE_ID"'
+  runOnReady: 'curl -fsS -m 4 -X POST https://platform.jrta.online/api/mediamtx/event -H "X-Webhook-Secret: YOUR_WEBHOOK_SECRET" --data-urlencode "event=ready" --data-urlencode "path=$MTX_PATH" --data-urlencode "id=$MTX_SOURCE_ID" --data-urlencode "type=$MTX_SOURCE_TYPE"'
   # Restart the command if it exits.
   runOnReadyRestart: no
   # Command to run when the stream is not available anymore.
   # Environment variables are the same of runOnReady.
-  runOnNotReady: 'curl -fsS -m 4 -X POST https://platform.jrta.online/api/mediamtx/event -H "X-Webhook-Secret: YOUR_WEBHOOK_SECRET" --data-urlencode "event=notready" --data-urlencode "path=$MTX_PATH" --data-urlencode "id=$MTX_SOURCE_ID"'
+  runOnNotReady: 'curl -fsS -m 4 -X POST https://platform.jrta.online/api/mediamtx/event -H "X-Webhook-Secret: YOUR_WEBHOOK_SECRET" --data-urlencode "event=notready" --data-urlencode "path=$MTX_PATH" --data-urlencode "id=$MTX_SOURCE_ID" --data-urlencode "type=$MTX_SOURCE_TYPE"'
 
   # Command to run when a client starts reading.
   # This is terminated with SIGINT when a client stops reading.
@@ -734,12 +734,12 @@ pathDefaults:
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
-  runOnRead: 'curl -fsS -m 4 -X POST https://platform.jrta.online/api/mediamtx/event -H "X-Webhook-Secret: YOUR_WEBHOOK_SECRET" --data-urlencode "event=read" --data-urlencode "path=$MTX_PATH" --data-urlencode "id=$MTX_READER_ID"'
+  runOnRead: 'curl -fsS -m 4 -X POST https://platform.jrta.online/api/mediamtx/event -H "X-Webhook-Secret: YOUR_WEBHOOK_SECRET" --data-urlencode "event=read" --data-urlencode "path=$MTX_PATH" --data-urlencode "id=$MTX_READER_ID" --data-urlencode "type=$MTX_READER_TYPE"'
   # Restart the command if it exits.
   runOnReadRestart: no
   # Command to run when a client stops reading.
   # Environment variables are the same of runOnRead.
-  runOnUnread: 'curl -fsS -m 4 -X POST https://platform.jrta.online/api/mediamtx/event -H "X-Webhook-Secret: YOUR_WEBHOOK_SECRET" --data-urlencode "event=unread" --data-urlencode "path=$MTX_PATH" --data-urlencode "id=$MTX_READER_ID"'
+  runOnUnread: 'curl -fsS -m 4 -X POST https://platform.jrta.online/api/mediamtx/event -H "X-Webhook-Secret: YOUR_WEBHOOK_SECRET" --data-urlencode "event=unread" --data-urlencode "path=$MTX_PATH" --data-urlencode "id=$MTX_READER_ID" --data-urlencode "type=$MTX_READER_TYPE"'
 
   # Command to run when a recording segment is created.
   # The following environment variables are available:

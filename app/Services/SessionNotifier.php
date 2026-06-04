@@ -39,17 +39,39 @@ class SessionNotifier
         // so an unescaped < > & in the path/ip would make Telegram reject it (HTTP 400).
         $path = htmlspecialchars($event->path, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $ip = $event->ip !== '' ? htmlspecialchars($event->ip, ENT_QUOTES | ENT_HTML5, 'UTF-8') : 'unknown';
-        $when = Carbon::parse($event->occurredAt)->diffForHumans();
+        $protocol = $this->protocolLabel($event->type);
+        $when = Carbon::parse($event->occurredAt)->timezone('Asia/Manila')->format('M d, Y h:i:s A');
 
-        $text = implode("\n", [
+        $lines = [
             "{$emoji} <b>{$title}</b>",
             '',
             "📺 <b>Stream:</b> <code>{$path}</code>",
-            "🌐 <b>IP:</b> <code>{$ip}</code>",
-            "🕒 <i>{$when}</i>",
-        ]);
+        ];
+        if ($protocol !== '') {
+            $lines[] = "🔌 <b>Type:</b> {$protocol}";
+        }
+        $lines[] = "🌐 <b>IP:</b> <code>{$ip}</code>";
+        $lines[] = "🕒 <i>{$when}</i>";
 
-        SendTelegramMessage::dispatch($text);
+        SendTelegramMessage::dispatch(implode("\n", $lines));
+    }
+
+    /**
+     * Map a MediaMTX source/reader type (e.g. "webRTCSession") to a friendly label.
+     * Unknown values pass through unchanged; an empty value hides the line.
+     */
+    private function protocolLabel(string $type): string
+    {
+        return match ($type) {
+            'webRTCSession' => 'WebRTC',
+            'rtmpConn' => 'RTMP',
+            'rtmpsConn' => 'RTMPS',
+            'rtspSession' => 'RTSP',
+            'rtspsSession' => 'RTSPS',
+            'srtConn' => 'SRT',
+            'hlsMuxer' => 'HLS',
+            default => $type,
+        };
     }
 
     private function passesDedupe(SessionEvent $event, string $phase): bool
