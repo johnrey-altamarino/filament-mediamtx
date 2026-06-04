@@ -95,6 +95,7 @@
 <script>
 const WHEP_BASE_URL = "{{ $whepBaseUrl }}";
 const PLAYBACK_ENABLED = {{ $playbackEnabled ? 'true' : 'false' }};
+const EMBED_SOURCE = @json($embedSource);
 
 let reader = null;
 let token = null;
@@ -155,7 +156,7 @@ async function fetchToken() {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ path: stream }),
+        body: JSON.stringify({ path: stream, source: EMBED_SOURCE }),
       });
 
       // Retry on server errors only

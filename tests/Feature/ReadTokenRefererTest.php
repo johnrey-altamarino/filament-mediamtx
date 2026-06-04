@@ -56,6 +56,22 @@ class ReadTokenRefererTest extends TestCase
         $this->assertSame($referer, cache()->get('mtx:referer:127.0.0.1:live/stream1'));
     }
 
+    public function test_embed_source_origin_is_cached_over_the_player_referer(): void
+    {
+        $this->mock(MediamtxJwtIssuer::class, function ($mock) {
+            $mock->shouldReceive('issueReadToken')
+                ->andReturn(['token' => 'fake.jwt.token', 'expires_at' => now()->addMinute()->timestamp]);
+        });
+
+        // Player is iframed: its JS sends the embedding site's origin as `source`.
+        $this->withHeaders(['Referer' => 'https://stream.example.com/play?stream=live/stream1'])
+            ->postJson('/api/read', ['path' => 'live/stream1', 'source' => 'https://embedder.example/watch/page'])
+            ->assertStatus(200);
+
+        // The embedding origin wins over the player URL, normalized to scheme://host.
+        $this->assertSame('https://embedder.example', cache()->get('mtx:referer:127.0.0.1:live/stream1'));
+    }
+
     public function test_unrelated_referer_is_rejected(): void
     {
         $response = $this->withHeaders(['Referer' => 'https://evil.com/'])

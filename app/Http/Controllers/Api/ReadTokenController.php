@@ -23,6 +23,7 @@ class ReadTokenController extends Controller
 
         $data = $request->validate([
             'path' => ['required', 'string', 'max:255'], // MediaMTX path, e.g. "live/stream1"
+            'source' => ['nullable', 'string', 'max:512'], // embedding site origin (set by the player when iframed)
         ]);
         $path = $data['path'];
         $ip = $this->resolver->resolve($request);
@@ -67,10 +68,14 @@ class ReadTokenController extends Controller
             ->withProperties(['ip' => $ip, 'referer' => $referer, 'path' => $path, 'exp' => $tokenData['expires_at']])
             ->log('token.read.issued');
 
-        // Stash the referer so the MediaMTX session webhook (which never sees it) can
-        // correlate it by ip+path and include it in viewer alerts. Best-effort.
+        // Stash the viewing source so the MediaMTX session webhook (which never sees it)
+        // can correlate it by ip+path for viewer alerts. When the player is embedded it
+        // reports the embedding site's origin; otherwise we fall back to the player URL
+        // (direct playback). Best-effort.
+        $embed = trim((string) ($data['source'] ?? ''));
+        $alertSource = $embed !== '' ? ($this->origin($embed) ?? $referer) : $referer;
         if ($ip) {
-            cache()->put("mtx:referer:{$ip}:{$path}", $referer, now()->addHours(6));
+            cache()->put("mtx:referer:{$ip}:{$path}", $alertSource, now()->addHours(6));
         }
 
         $this->logger->logIfNotThrottled($request, $ip, $path, true, null);
