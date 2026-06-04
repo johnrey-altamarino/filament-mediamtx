@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\BlockedIp;
 use App\Models\MediamtxSession;
 use App\Services\MediamtxApi;
+use App\Services\MediamtxSessionRefresher;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Tables;
@@ -24,7 +25,9 @@ class Sessions extends Page implements HasTable
 
     public function refreshSessions(): void
     {
-        // TODO (Task 9): call syncSnapshot() to refresh sessions on-demand.
+        // Sync the snapshot from MediaMTX only while this page is open.
+        // No background process runs; alerting is handled by the MediaMTX webhook.
+        app(MediamtxSessionRefresher::class)->syncSnapshot();
     }
 
     public function table(Tables\Table $table): Tables\Table
@@ -39,8 +42,6 @@ class Sessions extends Page implements HasTable
                 Tables\Columns\TextColumn::make('session_id')->label('Session ID')->searchable(),
                 Tables\Columns\TextColumn::make('path')->searchable(),
                 Tables\Columns\TextColumn::make('ip')->label('IP')->searchable(),
-                Tables\Columns\TextColumn::make('bytes_received')->label('Bytes In')->numeric()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('bytes_sent')->label('Bytes Out')->numeric()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('last_seen_at')->label('Last Seen')->since()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
