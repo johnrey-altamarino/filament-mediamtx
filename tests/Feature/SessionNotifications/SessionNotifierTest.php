@@ -34,15 +34,28 @@ class SessionNotifierTest extends TestCase
         });
     }
 
-    public function test_duplicate_event_within_ttl_is_suppressed(): void
+    public function test_duplicate_event_for_same_session_is_suppressed(): void
     {
         Queue::fake();
 
+        // Same session id delivered twice (e.g. a re-fired hook) → one alert.
         $notifier = app(SessionNotifier::class);
         $notifier->notify($this->event('publish'), 'started');
         $notifier->notify($this->event('publish'), 'started');
 
         Queue::assertPushed(SendTelegramMessage::class, 1);
+    }
+
+    public function test_distinct_read_sessions_from_same_ip_and_path_each_alert(): void
+    {
+        Queue::fake();
+
+        // Same viewer IP + stream, but two separate viewing sessions → two alerts.
+        $notifier = app(SessionNotifier::class);
+        $notifier->notify($this->event('read', ip: '1.2.3.4', sessionId: 's-A'), 'started');
+        $notifier->notify($this->event('read', ip: '1.2.3.4', sessionId: 's-B'), 'started');
+
+        Queue::assertPushed(SendTelegramMessage::class, 2);
     }
 
     public function test_read_flood_cap_suppresses_excess(): void
@@ -51,7 +64,7 @@ class SessionNotifierTest extends TestCase
 
         $notifier = app(SessionNotifier::class);
         for ($i = 0; $i < 25; $i++) {
-            $notifier->notify($this->event('read', "10.0.0.$i"), 'started');
+            $notifier->notify($this->event('read', sessionId: "sess-$i"), 'started');
         }
 
         // READ_FLOOD_CAP_PER_MINUTE = 20

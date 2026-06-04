@@ -85,14 +85,17 @@ class SessionNotifier
     private function passesDedupe(SessionEvent $event, string $phase): bool
     {
         // MediaMTX hooks may omit the session id (env vars vary by version). Fall back to
-        // path so distinct streams don't collapse onto one dedupe key and suppress alerts.
-        $publishId = $event->sessionId !== '' ? $event->sessionId : $event->path;
+        // path (publish) / ip:path (read) so distinct streams/viewers don't collapse onto
+        // one dedupe key and get suppressed.
+        $id = $event->sessionId !== ''
+            ? $event->sessionId
+            : ($event->kind === 'read' ? "{$event->ip}:{$event->path}" : $event->path);
 
         $key = match ([$event->kind, $phase]) {
-            ['publish', 'started'] => "notify:publish.started:{$publishId}",
-            ['publish', 'ended'] => "notify:publish.ended:{$publishId}",
-            ['read', 'started'] => "notify:read.started:{$event->ip}:{$event->path}",
-            ['read', 'ended'] => "notify:read.ended:{$event->ip}:{$event->path}",
+            ['publish', 'started'] => "notify:publish.started:{$id}",
+            ['publish', 'ended'] => "notify:publish.ended:{$id}",
+            ['read', 'started'] => "notify:read.started:{$id}",
+            ['read', 'ended'] => "notify:read.ended:{$id}",
             default => null,
         };
 
