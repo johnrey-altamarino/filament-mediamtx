@@ -15,8 +15,8 @@ class SessionsOverview extends BaseWidget
 
     protected function getStats(): array
     {
-        // Refresh snapshot before counting
-        app(MediamtxSessionRefresher::class)->refresh();
+        // Refresh snapshot before counting — runs only while the dashboard is open.
+        app(MediamtxSessionRefresher::class)->syncSnapshot();
 
         $total = MediamtxSession::query()->count();
 
