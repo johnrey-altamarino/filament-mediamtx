@@ -40,6 +40,7 @@ class SessionNotifier
         $path = htmlspecialchars($event->path, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $ip = $event->ip !== '' ? htmlspecialchars($event->ip, ENT_QUOTES | ENT_HTML5, 'UTF-8') : 'unknown';
         $protocol = $this->protocolLabel($event->type);
+        $referer = $event->referer !== '' ? htmlspecialchars($event->referer, ENT_QUOTES | ENT_HTML5, 'UTF-8') : '';
         $when = Carbon::parse($event->occurredAt)->timezone('Asia/Manila')->format('M d, Y h:i:s A');
 
         $lines = [
@@ -51,6 +52,13 @@ class SessionNotifier
             $lines[] = "🔌 <b>Type:</b> {$protocol}";
         }
         $lines[] = "🌐 <b>IP:</b> <code>{$ip}</code>";
+        if ($referer !== '') {
+            $lines[] = "🔗 <b>Referer:</b> {$referer}";
+        }
+        if ($event->sessionId !== '') {
+            $sessionId = htmlspecialchars($event->sessionId, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $lines[] = "🆔 <b>Session:</b> <code>{$sessionId}</code>";
+        }
         $lines[] = "🕒 <i>{$when}</i>";
 
         SendTelegramMessage::dispatch(implode("\n", $lines));

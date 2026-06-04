@@ -47,6 +47,12 @@ class MediamtxEventController
                 $ip = (string) Cache::get("mtx:sessionip:{$id}", '');
             }
 
+            // Referer is only known to /api/read (viewers); correlate it by ip+path.
+            $referer = '';
+            if ($kind === 'read' && $ip !== '') {
+                $referer = (string) Cache::get("mtx:referer:{$ip}:{$data['path']}", '');
+            }
+
             $notifier->notify(new SessionEvent(
                 kind: $kind,
                 sessionId: $id,
@@ -55,6 +61,7 @@ class MediamtxEventController
                 state: $kind,
                 occurredAt: now()->toIso8601String(),
                 type: $data['type'] ?? '',
+                referer: $referer,
             ), $phase);
         }
 

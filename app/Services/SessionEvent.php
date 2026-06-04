@@ -12,5 +12,6 @@ final class SessionEvent
         public readonly string $state,
         public readonly string $occurredAt,
         public readonly string $type = '',
+        public readonly string $referer = '',
     ) {}
 }

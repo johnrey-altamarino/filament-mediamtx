@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\SendTelegramMessage;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -87,6 +88,20 @@ class MediamtxEventControllerTest extends TestCase
             ->assertNoContent();
 
         Queue::assertPushed(SendTelegramMessage::class, fn (SendTelegramMessage $job) => str_contains($job->text, 'WebRTC'));
+    }
+
+    public function test_read_event_includes_correlated_referer_and_session_id(): void
+    {
+        Queue::fake();
+        Cache::put('mtx:referer:9.9.9.9:live/cam1', 'https://embed.example/page', now()->addHour());
+
+        $this->postEvent(['event' => 'read', 'path' => 'live/cam1', 'id' => 'r-77', 'ip' => '9.9.9.9'])
+            ->assertNoContent();
+
+        Queue::assertPushed(SendTelegramMessage::class, function (SendTelegramMessage $job) {
+            return str_contains($job->text, 'https://embed.example/page')
+                && str_contains($job->text, 'r-77');
+        });
     }
 
     public function test_leave_event_reuses_ip_cached_at_start(): void

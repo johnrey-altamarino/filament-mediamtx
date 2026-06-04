@@ -41,6 +41,21 @@ class ReadTokenRefererTest extends TestCase
         $response->assertJson(['token' => 'fake.jwt.token']);
     }
 
+    public function test_successful_request_caches_referer_for_session_correlation(): void
+    {
+        $this->mock(MediamtxJwtIssuer::class, function ($mock) {
+            $mock->shouldReceive('issueReadToken')
+                ->andReturn(['token' => 'fake.jwt.token', 'expires_at' => now()->addMinute()->timestamp]);
+        });
+
+        $referer = 'https://stream.example.com/play?stream=live/stream1';
+        $this->withHeaders(['Referer' => $referer])
+            ->postJson('/api/read', ['path' => 'live/stream1'])
+            ->assertStatus(200);
+
+        $this->assertSame($referer, cache()->get('mtx:referer:127.0.0.1:live/stream1'));
+    }
+
     public function test_unrelated_referer_is_rejected(): void
     {
         $response = $this->withHeaders(['Referer' => 'https://evil.com/'])

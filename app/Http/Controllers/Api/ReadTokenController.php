@@ -67,6 +67,12 @@ class ReadTokenController extends Controller
             ->withProperties(['ip' => $ip, 'referer' => $referer, 'path' => $path, 'exp' => $tokenData['expires_at']])
             ->log('token.read.issued');
 
+        // Stash the referer so the MediaMTX session webhook (which never sees it) can
+        // correlate it by ip+path and include it in viewer alerts. Best-effort.
+        if ($ip) {
+            cache()->put("mtx:referer:{$ip}:{$path}", $referer, now()->addHours(6));
+        }
+
         $this->logger->logIfNotThrottled($request, $ip, $path, true, null);
 
         return response()->json($tokenData);
