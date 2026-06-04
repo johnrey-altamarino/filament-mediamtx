@@ -2,12 +2,8 @@
 
 namespace App\Services;
 
-use App\Filament\Pages\Sessions;
-use App\Models\User;
+use App\Jobs\SendTelegramMessage;
 use Carbon\Carbon;
-use Filament\Notifications\Actions\Action;
-use Filament\Notifications\Notification;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -17,23 +13,7 @@ class SessionNotifier
 
     private const READ_FLOOD_CAP_PER_MINUTE = 20;
 
-    public function dispatch(SessionDiff $diff): void
-    {
-        $recipients = $this->recipients();
-        if ($recipients->isEmpty()) {
-            return;
-        }
-
-        foreach ($diff->started as $event) {
-            $this->maybeSend($event, 'started', $recipients);
-        }
-
-        foreach ($diff->ended as $event) {
-            $this->maybeSend($event, 'ended', $recipients);
-        }
-    }
-
-    private function maybeSend(SessionEvent $event, string $phase, Collection $recipients): void
+    public function notify(SessionEvent $event, string $phase): void
     {
         $titleVerb = match ([$event->kind, $phase]) {
             ['publish', 'started'] => 'New publisher on',
@@ -55,20 +35,12 @@ class SessionNotifier
             return;
         }
 
-        $color = $phase === 'started' ? 'success' : 'gray';
+        $when = Carbon::parse($event->occurredAt)->diffForHumans();
+        $ip = $event->ip !== '' ? $event->ip : 'unknown';
 
-        Notification::make()
-            ->title("{$titleVerb} {$event->path}")
-            ->body("IP {$event->ip} · ".Carbon::parse($event->occurredAt)->diffForHumans())
-            ->icon('heroicon-o-signal')
-            ->color($color)
-            ->actions([
-                Action::make('view_sessions')
-                    ->label('View sessions')
-                    ->url(Sessions::getUrl(), shouldOpenInNewTab: false)
-                    ->markAsRead(),
-            ])
-            ->sendToDatabase($recipients);
+        $text = "<b>{$titleVerb} {$event->path}</b>\nIP {$ip} · {$when}";
+
+        SendTelegramMessage::dispatch($text);
     }
 
     private function passesDedupe(SessionEvent $event, string $phase): bool
@@ -114,14 +86,5 @@ class SessionNotifier
         }
 
         return true;
-    }
-
-    private function recipients(): Collection
-    {
-        return Cache::remember(
-            'notify:recipients:admins',
-            60,
-            fn () => User::role(['super-admin', 'moderator'])->get(),
-        );
     }
 }
