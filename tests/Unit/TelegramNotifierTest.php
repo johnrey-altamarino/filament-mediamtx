@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\TelegramNotifier;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class TelegramNotifierTest extends TestCase
@@ -49,5 +50,18 @@ class TelegramNotifierTest extends TestCase
         app(TelegramNotifier::class)->send('hello');
 
         Http::assertNothingSent();
+    }
+
+    public function test_it_logs_a_warning_when_telegram_returns_an_error(): void
+    {
+        config([
+            'services.telegram.enabled' => true,
+            'services.telegram.bot_token' => 'BOT123',
+            'services.telegram.chat_id' => '99',
+        ]);
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => false, 'description' => 'bad'], 400)]);
+        Log::shouldReceive('warning')->once();
+
+        app(TelegramNotifier::class)->send('hello');
     }
 }

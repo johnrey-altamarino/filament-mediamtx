@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\SendTelegramMessage;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -28,7 +29,9 @@ class MediamtxEventControllerTest extends TestCase
             ->assertNoContent();
 
         Queue::assertPushed(SendTelegramMessage::class, function (SendTelegramMessage $job) {
-            return str_contains($job->text, 'New publisher on live/cam1');
+            return str_contains($job->text, 'Publisher started')
+                && str_contains($job->text, 'live/cam1')
+                && str_contains($job->text, '1.2.3.4');
         });
     }
 
@@ -40,7 +43,39 @@ class MediamtxEventControllerTest extends TestCase
             ->assertNoContent();
 
         Queue::assertPushed(SendTelegramMessage::class, function (SendTelegramMessage $job) {
-            return str_contains($job->text, 'New viewer on live/cam1');
+            return str_contains($job->text, 'Viewer started')
+                && str_contains($job->text, 'live/cam1')
+                && str_contains($job->text, '9.9.9.9');
+        });
+    }
+
+    public function test_started_event_without_ip_resolves_it_from_the_control_api(): void
+    {
+        Queue::fake();
+        Http::fake([
+            '*/v3/webrtcsessions/list' => Http::response(['items' => [
+                ['id' => 'pub-9', 'remoteAddr' => '203.0.113.7:5555'],
+            ]], 200),
+        ]);
+
+        $this->postEvent(['event' => 'ready', 'path' => 'live/cam1', 'id' => 'pub-9'])
+            ->assertNoContent();
+
+        Queue::assertPushed(SendTelegramMessage::class, function (SendTelegramMessage $job) {
+            return str_contains($job->text, '203.0.113.7');
+        });
+    }
+
+    public function test_started_event_survives_api_failure_with_unknown_ip(): void
+    {
+        Queue::fake();
+        Http::fake(['*' => Http::response('boom', 500)]);
+
+        $this->postEvent(['event' => 'ready', 'path' => 'live/cam1', 'id' => 'pub-x'])
+            ->assertNoContent();
+
+        Queue::assertPushed(SendTelegramMessage::class, function (SendTelegramMessage $job) {
+            return str_contains($job->text, 'unknown');
         });
     }
 

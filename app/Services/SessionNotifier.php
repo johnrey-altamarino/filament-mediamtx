@@ -15,15 +15,15 @@ class SessionNotifier
 
     public function notify(SessionEvent $event, string $phase): void
     {
-        $titleVerb = match ([$event->kind, $phase]) {
-            ['publish', 'started'] => 'New publisher on',
-            ['publish', 'ended'] => 'Publisher ended on',
-            ['read', 'started'] => 'New viewer on',
-            ['read', 'ended'] => 'Viewer ended on',
-            default => null,
+        [$emoji, $title] = match ([$event->kind, $phase]) {
+            ['publish', 'started'] => ['🔴', 'Publisher started'],
+            ['publish', 'ended'] => ['⚪', 'Publisher stopped'],
+            ['read', 'started'] => ['👁️', 'Viewer started'],
+            ['read', 'ended'] => ['👋', 'Viewer left'],
+            default => [null, null],
         };
 
-        if ($titleVerb === null) {
+        if ($title === null) {
             return;
         }
 
@@ -35,14 +35,19 @@ class SessionNotifier
             return;
         }
 
-        $when = Carbon::parse($event->occurredAt)->diffForHumans();
-
         // Escape operator-controlled fields: the message is sent with parse_mode=HTML,
         // so an unescaped < > & in the path/ip would make Telegram reject it (HTTP 400).
         $path = htmlspecialchars($event->path, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $ip = $event->ip !== '' ? htmlspecialchars($event->ip, ENT_QUOTES | ENT_HTML5, 'UTF-8') : 'unknown';
+        $when = Carbon::parse($event->occurredAt)->diffForHumans();
 
-        $text = "<b>{$titleVerb} {$path}</b>\nIP {$ip} · {$when}";
+        $text = implode("\n", [
+            "{$emoji} <b>{$title}</b>",
+            '',
+            "📺 <b>Stream:</b> <code>{$path}</code>",
+            "🌐 <b>IP:</b> <code>{$ip}</code>",
+            "🕒 <i>{$when}</i>",
+        ]);
 
         SendTelegramMessage::dispatch($text);
     }

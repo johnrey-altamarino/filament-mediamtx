@@ -29,7 +29,7 @@ class SessionNotifierTest extends TestCase
         app(SessionNotifier::class)->notify($this->event('publish'), 'started');
 
         Queue::assertPushed(SendTelegramMessage::class, function (SendTelegramMessage $job) {
-            return str_contains($job->text, 'New publisher on')
+            return str_contains($job->text, 'Publisher started')
                 && str_contains($job->text, 'live/cam1');
         });
     }

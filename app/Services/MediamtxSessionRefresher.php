@@ -24,7 +24,7 @@ class MediamtxSessionRefresher
                 'path' => (string) data_get($it, 'path', ''),
                 'query' => (string) data_get($it, 'query', ''),
                 'remote_addr' => $remote,
-                'ip' => $this->extractIp($remote),
+                'ip' => MediamtxApi::ipFromRemoteAddr($remote),
                 'created' => (string) data_get($it, 'created', ''),
             ];
         })->filter(fn ($r) => $r['session_id'] !== '')->values();
@@ -38,20 +38,5 @@ class MediamtxSessionRefresher
 
         $stale = (int) config('services.mediamtx.stale_seconds', 20);
         MediamtxSession::where('last_seen_at', '<', now()->subSeconds($stale))->delete();
-    }
-
-    private function extractIp(string $remoteAddr): string
-    {
-        if (str_starts_with($remoteAddr, '[')) {
-            $end = strpos($remoteAddr, ']');
-
-            return $end !== false ? substr($remoteAddr, 1, $end - 1) : $remoteAddr;
-        }
-
-        if (substr_count($remoteAddr, ':') === 1) {
-            return explode(':', $remoteAddr, 2)[0];
-        }
-
-        return $remoteAddr;
     }
 }
