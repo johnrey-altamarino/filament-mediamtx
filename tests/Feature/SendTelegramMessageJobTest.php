@@ -15,6 +15,9 @@ class SendTelegramMessageJobTest extends TestCase
         $notifier->shouldReceive('send')->once()->with('ping');
 
         (new SendTelegramMessage('ping'))->handle($notifier);
+
+        // The Mockery expectation above is the assertion (verified on tearDown).
+        $this->addToAssertionCount(1);
     }
 
     protected function tearDown(): void

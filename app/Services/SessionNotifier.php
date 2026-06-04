@@ -36,18 +36,26 @@ class SessionNotifier
         }
 
         $when = Carbon::parse($event->occurredAt)->diffForHumans();
-        $ip = $event->ip !== '' ? $event->ip : 'unknown';
 
-        $text = "<b>{$titleVerb} {$event->path}</b>\nIP {$ip} · {$when}";
+        // Escape operator-controlled fields: the message is sent with parse_mode=HTML,
+        // so an unescaped < > & in the path/ip would make Telegram reject it (HTTP 400).
+        $path = htmlspecialchars($event->path, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $ip = $event->ip !== '' ? htmlspecialchars($event->ip, ENT_QUOTES | ENT_HTML5, 'UTF-8') : 'unknown';
+
+        $text = "<b>{$titleVerb} {$path}</b>\nIP {$ip} · {$when}";
 
         SendTelegramMessage::dispatch($text);
     }
 
     private function passesDedupe(SessionEvent $event, string $phase): bool
     {
+        // MediaMTX hooks may omit the session id (env vars vary by version). Fall back to
+        // path so distinct streams don't collapse onto one dedupe key and suppress alerts.
+        $publishId = $event->sessionId !== '' ? $event->sessionId : $event->path;
+
         $key = match ([$event->kind, $phase]) {
-            ['publish', 'started'] => "notify:publish.started:{$event->sessionId}",
-            ['publish', 'ended'] => "notify:publish.ended:{$event->sessionId}",
+            ['publish', 'started'] => "notify:publish.started:{$publishId}",
+            ['publish', 'ended'] => "notify:publish.ended:{$publishId}",
             ['read', 'started'] => "notify:read.started:{$event->ip}:{$event->path}",
             ['read', 'ended'] => "notify:read.ended:{$event->ip}:{$event->path}",
             default => null,
