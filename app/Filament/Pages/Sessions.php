@@ -22,7 +22,6 @@ class Sessions extends Page implements HasTable
 
     protected static ?string $navigationLabel = 'Live Sessions';
 
-
     public function refreshSessions(): void
     {
         // Sync the snapshot from MediaMTX only while this page is open.
