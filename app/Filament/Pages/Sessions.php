@@ -2,6 +2,9 @@
 
 namespace App\Filament\Pages;
 
+use Filament\Tables\Table;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Actions\Action;
 use App\Models\BlockedIp;
 use App\Models\MediamtxSession;
 use App\Services\MediamtxApi;
@@ -16,9 +19,9 @@ class Sessions extends Page implements HasTable
 {
     use InteractsWithTable;
 
-    protected static ?string $navigationIcon = 'heroicon-o-signal';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-signal';
 
-    protected static string $view = 'filament.pages.sessions';
+    protected string $view = 'filament.pages.sessions';
 
     protected static ?string $navigationLabel = 'Live Sessions';
 
@@ -29,22 +32,22 @@ class Sessions extends Page implements HasTable
         app(MediamtxSessionRefresher::class)->syncSnapshot();
     }
 
-    public function table(Tables\Table $table): Tables\Table
+    public function table(Table $table): Table
     {
         return $table
             // ✅ THIS FIXES "must have a query()"
             ->query(MediamtxSession::query())
             ->columns([
-                Tables\Columns\TextColumn::make('created')->label('Created')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable()->toggleable(),
-                Tables\Columns\TextColumn::make('type')->badge()->sortable()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('state')->badge()->sortable(),
-                Tables\Columns\TextColumn::make('session_id')->label('Session ID')->searchable(),
-                Tables\Columns\TextColumn::make('path')->searchable(),
-                Tables\Columns\TextColumn::make('ip')->label('IP')->searchable(),
-                Tables\Columns\TextColumn::make('last_seen_at')->label('Last Seen')->since()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('created')->label('Created')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable()->toggleable(),
+                TextColumn::make('type')->badge()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('state')->badge()->sortable(),
+                TextColumn::make('session_id')->label('Session ID')->searchable(),
+                TextColumn::make('path')->searchable(),
+                TextColumn::make('ip')->label('IP')->searchable(),
+                TextColumn::make('last_seen_at')->label('Last Seen')->since()->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->actions([
-                Tables\Actions\Action::make('kick')
+            ->recordActions([
+                Action::make('kick')
                     ->label('Kick')
                     ->icon('heroicon-o-hand-raised')
                     ->requiresConfirmation()
@@ -65,7 +68,7 @@ class Sessions extends Page implements HasTable
                     })
                     ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false),
 
-                Tables\Actions\Action::make('block_ip')
+                Action::make('block_ip')
                     ->label('Block IP')
                     ->icon('heroicon-o-no-symbol')
                     ->requiresConfirmation()

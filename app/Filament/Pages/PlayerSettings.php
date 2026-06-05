@@ -2,13 +2,13 @@
 
 namespace App\Filament\Pages;
 
+use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Section;
 use App\Models\PlayerSetting;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 
@@ -16,13 +16,13 @@ class PlayerSettings extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static ?string $navigationIcon = 'heroicon-o-adjustments-horizontal';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-adjustments-horizontal';
 
-    protected static string $view = 'filament.pages.player-settings';
+    protected string $view = 'filament.pages.player-settings';
 
     protected static ?string $navigationLabel = 'Settings';
 
-    protected static ?string $navigationGroup = 'Security Control';
+    protected static string | \UnitEnum | null $navigationGroup = 'Security Control';
 
     protected static ?int $navigationSort = 4;
 
@@ -36,10 +36,10 @@ class PlayerSettings extends Page implements HasForms
         ]);
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
-            ->schema([
+        return $schema
+            ->components([
                 Section::make('IP Access')
                     ->schema([
                         Select::make('ip_mode')

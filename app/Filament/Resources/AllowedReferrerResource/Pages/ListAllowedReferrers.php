@@ -19,7 +19,7 @@ class ListAllowedReferrers extends ListRecords
                 ->icon('heroicon-o-plus')
                 ->modalHeading('Add Allowed Referrer')
                 ->modalWidth('xl')
-                ->form(AllowedReferrerResource::referrerFormSchema())
+                ->schema(AllowedReferrerResource::referrerFormSchema())
                 ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false)
                 ->action(function (array $data): void {
                     $record = AllowedReferrer::create([

@@ -20,7 +20,7 @@ class ListPublishTokens extends ListRecords
                 ->icon('heroicon-o-plus')
                 ->modalHeading('Create Publish Token')
                 ->modalWidth('lg')
-                ->form(PublishTokenResource::publishTokenFormSchema())
+                ->schema(PublishTokenResource::publishTokenFormSchema())
                 ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false)
                 ->action(function (array $data) {
                     $issuer = app(MediamtxJwtIssuer::class);

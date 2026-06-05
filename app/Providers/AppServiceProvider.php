@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use RuntimeException;
 use App\Services\ClientIpResolver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -17,13 +18,13 @@ class AppServiceProvider extends ServiceProvider
             $absolutePath = base_path($path);
 
             if (! is_readable($absolutePath)) {
-                throw new \RuntimeException("JWT private key not found or not readable: {$absolutePath}");
+                throw new RuntimeException("JWT private key not found or not readable: {$absolutePath}");
             }
 
             $key = file_get_contents($absolutePath);
 
             if ($key === false || $key === '') {
-                throw new \RuntimeException('JWT private key is empty');
+                throw new RuntimeException('JWT private key is empty');
             }
 
             return $key;

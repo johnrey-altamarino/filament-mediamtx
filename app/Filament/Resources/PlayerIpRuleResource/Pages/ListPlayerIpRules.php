@@ -19,7 +19,7 @@ class ListPlayerIpRules extends ListRecords
                 ->icon('heroicon-o-plus')
                 ->modalHeading('Add IP Rule')
                 ->modalWidth('lg')
-                ->form(PlayerIpRuleResource::ipRuleFormSchema())
+                ->schema(PlayerIpRuleResource::ipRuleFormSchema())
                 ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false)
                 ->action(function (array $data): void {
                     PlayerIpRule::create([

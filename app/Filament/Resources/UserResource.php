@@ -2,11 +2,15 @@
 
 namespace App\Filament\Resources;
 
+use Filament\Schemas\Schema;
+use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use App\Filament\Resources\UserResource\Pages\ListUsers;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Support\Exceptions\Halt;
@@ -26,7 +30,7 @@ class UserResource extends Resource
 
     protected static ?int $navigationSort = 4;
 
-    protected static ?string $navigationIcon = 'heroicon-o-users';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-users';
 
     public static function userFormSchema(bool $isCreate = false): array
     {
@@ -76,9 +80,9 @@ class UserResource extends Resource
         ];
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form->schema(self::userFormSchema(isCreate: false));
+        return $schema->components(self::userFormSchema(isCreate: false));
     }
 
     public static function table(Table $table): Table
@@ -90,11 +94,11 @@ class UserResource extends Resource
                 TagsColumn::make('roles.name')->label('Roles'),
                 TextColumn::make('created_at')->dateTime()->since()->sortable(),
             ])
-            ->actions([
-                Tables\Actions\Action::make('edit')
+            ->recordActions([
+                Action::make('edit')
                     ->label('Edit')
                     ->icon('heroicon-o-pencil-square')
-                    ->form(fn (User $record) => self::userFormSchema(isCreate: false))
+                    ->schema(fn (User $record) => self::userFormSchema(isCreate: false))
                     ->fillForm(function (User $record): array {
                         return [
                             'username' => $record->username,
@@ -144,16 +148,16 @@ class UserResource extends Resource
                     ->modalHeading('Edit User')
                     ->modalWidth('lg'),
 
-                Tables\Actions\DeleteAction::make()
+                DeleteAction::make()
                     ->before(function (User $record) {
                         if ($record->isSuperAdmin() && User::superAdminCount() <= 1) {
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->title('Action blocked')
                                 ->body('You cannot delete the last super-admin.')
                                 ->danger()
                                 ->send();
 
-                            throw new \Filament\Support\Exceptions\Halt;
+                            throw new Halt;
                         }
                     })
                     ->after(function (User $record) {
@@ -167,9 +171,9 @@ class UserResource extends Resource
                             ->log('user.deleted');
                     }),
             ])
-            ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make()
-                    ->before(function (Tables\Actions\DeleteBulkAction $action) {
+            ->toolbarActions([
+                DeleteBulkAction::make()
+                    ->before(function (DeleteBulkAction $action) {
                         // Capture usernames before deletion
                         $records = $action->getRecords();
 
@@ -215,7 +219,7 @@ class UserResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListUsers::route('/'),
+            'index' => ListUsers::route('/'),
         ];
     }
 }

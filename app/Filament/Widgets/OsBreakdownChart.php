@@ -7,11 +7,11 @@ use Filament\Widgets\ChartWidget;
 
 class OsBreakdownChart extends ChartWidget
 {
-    protected static ?string $heading = 'OS Breakdown (Last 12 Hours)';
+    protected ?string $heading = 'OS Breakdown (Last 12 Hours)';
 
     protected static ?int $sort = 20;
 
-    protected static ?string $pollingInterval = '60s';
+    protected ?string $pollingInterval = '60s';
 
     protected function getData(): array
     {

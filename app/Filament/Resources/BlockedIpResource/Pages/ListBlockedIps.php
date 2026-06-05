@@ -19,7 +19,7 @@ class ListBlockedIps extends ListRecords
                 ->icon('heroicon-o-no-symbol')
                 ->modalHeading('Block IP Address')
                 ->modalWidth('lg')
-                ->form(BlockedIpResource::blockedIpFormSchema())
+                ->schema(BlockedIpResource::blockedIpFormSchema())
                 ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false)
                 ->action(function (array $data): void {
                     $record = BlockedIp::create([

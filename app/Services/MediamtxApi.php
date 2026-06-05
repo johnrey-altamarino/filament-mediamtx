@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Throwable;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
@@ -50,7 +51,7 @@ class MediamtxApi
 
         try {
             $items = data_get($this->listWebRtcSessions(), 'items', []);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return '';
         }
 

@@ -19,7 +19,7 @@ class ListUsers extends ListRecords
                 ->icon('heroicon-o-plus')
                 ->modalHeading('Create User')
                 ->modalWidth('lg')
-                ->form(UserResource::userFormSchema(isCreate: true))
+                ->schema(UserResource::userFormSchema(isCreate: true))
                 ->visible(fn () => auth()->user()?->hasRole('super-admin'))
                 ->action(function (array $data): void {
                     /** @var User $user */

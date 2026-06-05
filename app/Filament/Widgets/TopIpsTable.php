@@ -2,6 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use Illuminate\Database\Eloquent\Model;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Actions\Action;
 use App\Models\BlockedIp;
 use App\Models\ViewerRequest;
 use Filament\Notifications\Notification;
@@ -20,7 +24,7 @@ class TopIpsTable extends BaseWidget
 
     protected int|string|array $columnSpan = 'md';
 
-    public function getTableRecordKey($record): string
+    public function getTableRecordKey(Model|array $record): string
     {
         return (string) ($record->ip ?? $record->id ?? '');
     }
@@ -30,34 +34,34 @@ class TopIpsTable extends BaseWidget
         return $table
             ->query($this->getQuery())
             ->columns([
-                Tables\Columns\TextColumn::make('ip')
+                TextColumn::make('ip')
                     ->label('IP')
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('requests')
+                TextColumn::make('requests')
                     ->label('Requests')
                     ->numeric()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('unique_streams')
+                TextColumn::make('unique_streams')
                     ->label('Unique Streams')
                     ->numeric()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('unique_devices')
+                TextColumn::make('unique_devices')
                     ->label('Unique Devices')
                     ->numeric()
                     ->sortable(),
 
-                Tables\Columns\IconColumn::make('is_blocked')
+                IconColumn::make('is_blocked')
                     ->label('Blocked')
                     ->boolean()
                     ->sortable(),
             ])
             ->paginated(false)
-            ->actions([
-                Tables\Actions\Action::make('block')
+            ->recordActions([
+                Action::make('block')
                     ->label('Block')
                     ->icon('heroicon-o-no-symbol')
                     ->requiresConfirmation()
@@ -84,7 +88,7 @@ class TopIpsTable extends BaseWidget
                             ->send();
                     }),
 
-                Tables\Actions\Action::make('copy_ip')
+                Action::make('copy_ip')
                     ->label('Copy')
                     ->icon('heroicon-o-clipboard')
                     ->action(fn () => null)

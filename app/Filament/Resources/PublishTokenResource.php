@@ -2,11 +2,20 @@
 
 namespace App\Filament\Resources;
 
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use App\Filament\Resources\PublishTokenResource\Pages\ListPublishTokens;
 use App\Filament\Resources\PublishTokenResource\Pages;
 use App\Models\PublishToken;
 use App\Services\MediamtxJwtIssuer;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -17,34 +26,34 @@ class PublishTokenResource extends Resource
 {
     protected static ?string $model = PublishToken::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-key';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-key';
 
     protected static ?string $navigationLabel = 'Publish Token Generator';
 
     public static function publishTokenFormSchema(): array
     {
         return [
-            Forms\Components\TextInput::make('name')
+            TextInput::make('name')
                 ->required()
                 ->maxLength(255),
 
-            Forms\Components\TextInput::make('path')
+            TextInput::make('path')
                 ->label('MediaMTX Path')
                 ->helperText('Example: live/stream1')
                 ->required()
                 ->maxLength(255)
                 ->unique(ignoreRecord: true),
 
-            Forms\Components\Toggle::make('is_enabled')
+            Toggle::make('is_enabled')
                 ->label('Enabled')
                 ->default(true),
 
-            Forms\Components\Textarea::make('notes')
+            Textarea::make('notes')
                 ->rows(3)
                 ->maxLength(65535),
 
             // Only used on edit modal to rotate token
-            Forms\Components\Toggle::make('regenerate_token')
+            Toggle::make('regenerate_token')
                 ->label('Regenerate token (rotate)')
                 ->default(false)
                 ->dehydrated(false)
@@ -52,23 +61,23 @@ class PublishTokenResource extends Resource
         ];
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form->schema(self::publishTokenFormSchema());
+        return $schema->components(self::publishTokenFormSchema());
     }
 
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                Tables\Columns\ToggleColumn::make('is_enabled')->label('Status')->sortable(),
-                Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('path')->label('Path')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('last_generated_at')->label('Generated')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable(),
-                Tables\Columns\TextColumn::make('createdBy.username')->label('Created By')->placeholder('-')->toggleable(isToggledHiddenByDefault: true),
+                ToggleColumn::make('is_enabled')->label('Status')->sortable(),
+                TextColumn::make('name')->searchable()->sortable(),
+                TextColumn::make('path')->label('Path')->searchable()->sortable(),
+                TextColumn::make('last_generated_at')->label('Generated')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable(),
+                TextColumn::make('createdBy.username')->label('Created By')->placeholder('-')->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->actions([
-                Tables\Actions\Action::make('copy_token')
+            ->recordActions([
+                Action::make('copy_token')
                     ->label('Copy Token')
                     ->icon('heroicon-o-clipboard-document')
                     ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator', 'monitoring']) ?? false)
@@ -114,13 +123,13 @@ class PublishTokenResource extends Resource
                             ->success()
                             ->send();
                     }),
-                Tables\Actions\Action::make('rotate')
+                Action::make('rotate')
                     ->label('Rotate')
                     ->icon('heroicon-o-arrow-path')
                     ->requiresConfirmation()
                     ->modalHeading('Rotate publish token?')
-                    ->action(function (\App\Models\PublishToken $record) {
-                        $issuer = app(\App\Services\MediamtxJwtIssuer::class);
+                    ->action(function (PublishToken $record) {
+                        $issuer = app(MediamtxJwtIssuer::class);
                         $issued = $issuer->issuePublishToken($record->path, noExpiry: true);
 
                         $record->update([
@@ -137,12 +146,12 @@ class PublishTokenResource extends Resource
                     ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false),
 
                 // Edit modal
-                Tables\Actions\Action::make('edit')
+                Action::make('edit')
                     ->label('Edit')
                     ->icon('heroicon-o-pencil-square')
                     ->modalHeading('Edit Publish Token')
                     ->modalWidth('lg')
-                    ->form(self::publishTokenFormSchema())
+                    ->schema(self::publishTokenFormSchema())
                     ->fillForm(fn (PublishToken $record) => [
                         'name' => $record->name,
                         'path' => $record->path,
@@ -181,7 +190,7 @@ class PublishTokenResource extends Resource
                     })
                     ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false),
 
-                Tables\Actions\DeleteAction::make()
+                DeleteAction::make()
                     ->label('Delete')
                     ->before(function (PublishToken $record) {
                         activity('security')
@@ -192,8 +201,8 @@ class PublishTokenResource extends Resource
                     })
                     ->visible(fn () => auth()->user()?->hasRole('super-admin') ?? false),
             ])
-            ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make()
+            ->toolbarActions([
+                DeleteBulkAction::make()
                     ->visible(fn () => auth()->user()?->hasRole('super-admin') ?? false),
             ]);
     }
@@ -206,7 +215,7 @@ class PublishTokenResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListPublishTokens::route('/'),
+            'index' => ListPublishTokens::route('/'),
         ];
     }
 }

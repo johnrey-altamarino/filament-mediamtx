@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use Throwable;
 use App\Http\Controllers\Controller;
 use App\Models\AllowedReferrer;
 use App\Models\BlockedIp;
@@ -59,7 +60,7 @@ class ReadTokenController extends Controller
         // 3) Issue read JWT via service
         try {
             $tokenData = $this->issuer->issueReadToken($path);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return response()->json(['message' => 'Failed to issue token'], 500);
         }
 

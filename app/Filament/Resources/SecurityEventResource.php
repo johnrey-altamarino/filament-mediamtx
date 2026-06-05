@@ -2,6 +2,11 @@
 
 namespace App\Filament\Resources;
 
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Actions\Action;
+use App\Models\BlockedIp;
+use App\Filament\Resources\SecurityEventResource\Pages\ListSecurityEvents;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -12,11 +17,11 @@ class SecurityEventResource extends Resource
 {
     protected static ?string $model = Activity::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-shield-check';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-shield-check';
 
     protected static ?string $navigationLabel = 'Security Events';
 
-    protected static ?string $navigationGroup = 'Activity';
+    protected static string | \UnitEnum | null $navigationGroup = 'Activity';
 
     protected static ?string $slug = 'security-events';
 
@@ -32,27 +37,27 @@ class SecurityEventResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('created_at')
+                TextColumn::make('created_at')
                     ->label('Time')
                     ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('properties.ip')
+                TextColumn::make('properties.ip')
                     ->label('IP')
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('properties.path')
+                TextColumn::make('properties.path')
                     ->label('Path')
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('properties.referer')
+                TextColumn::make('properties.referer')
                     ->label('Referer')
                     ->searchable()
                     ->limit(40),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                Tables\Filters\SelectFilter::make('range')
+                SelectFilter::make('range')
                     ->label('Time Range')
                     ->options([
                         '1h' => 'Last 1 hour',
@@ -73,8 +78,8 @@ class SecurityEventResource extends Resource
                         return $query->where('created_at', '>=', $since);
                     }),
             ])
-            ->actions([
-                Tables\Actions\Action::make('block_ip')
+            ->recordActions([
+                Action::make('block_ip')
                     ->label('Block IP')
                     ->icon('heroicon-o-no-symbol')
                     ->requiresConfirmation()
@@ -83,7 +88,7 @@ class SecurityEventResource extends Resource
                     ->action(function (Activity $record) {
                         $ip = (string) data_get($record->properties, 'ip');
 
-                        \App\Models\BlockedIp::firstOrCreate(
+                        BlockedIp::firstOrCreate(
                             ['ip' => $ip],
                             [
                                 'reason' => 'Blocked from Security Events',
@@ -98,7 +103,7 @@ class SecurityEventResource extends Resource
                             ->log('ip.blocked.from_security_events');
                     }),
             ])
-            ->bulkActions([]);
+            ->toolbarActions([]);
     }
 
     public static function canCreate(): bool
@@ -109,7 +114,7 @@ class SecurityEventResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => \App\Filament\Resources\SecurityEventResource\Pages\ListSecurityEvents::route('/'),
+            'index' => ListSecurityEvents::route('/'),
         ];
     }
 }
