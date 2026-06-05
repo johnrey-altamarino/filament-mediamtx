@@ -1,6 +1,6 @@
 # MediaMTX Admin
 
-A **Filament v3 admin panel** (Laravel 12, PHP 8.2+) for operating a [MediaMTX](https://github.com/bluenviron/mediamtx)
+A **Filament v5 admin panel** (Laravel 13, Livewire 4, PHP 8.3+) for operating a [MediaMTX](https://github.com/bluenviron/mediamtx)
 media server. The app acts as an **RS256 JWT authorization server** for MediaMTX and provides an admin UI for managing
 publish credentials, viewer access control, live sessions, an embeddable player, security audit logs, and real‑time
 Telegram alerts.
@@ -199,7 +199,7 @@ MEDIAMTX_WEBHOOK_SECRET=                            # shared secret for X-Webhoo
 
 ## Local development
 
-Requirements: PHP 8.2+, Composer, Node 18+ (22 recommended), and a database (SQLite works for dev).
+Requirements: PHP 8.3+, Composer, Node 18+ (22 recommended), and a database (SQLite works for dev).
 
 ```bash
 # First‑time setup: install deps, copy .env, generate APP_KEY, migrate, build assets
@@ -556,7 +556,7 @@ migrations.
 
 ---
 
-Built on [Laravel 12](https://laravel.com) and [Filament v3](https://filamentphp.com), authorizing
+Built on [Laravel 13](https://laravel.com) and [Filament v5](https://filamentphp.com) (Livewire 4), authorizing
 [MediaMTX](https://github.com/bluenviron/mediamtx).
 </content>
 </invoke>
