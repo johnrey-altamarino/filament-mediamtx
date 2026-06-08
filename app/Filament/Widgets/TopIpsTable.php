@@ -2,17 +2,16 @@
 
 namespace App\Filament\Widgets;
 
-use Illuminate\Database\Eloquent\Model;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Actions\Action;
 use App\Models\BlockedIp;
 use App\Models\ViewerRequest;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
-use Filament\Tables;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class TopIpsTable extends BaseWidget
 {
@@ -33,6 +32,11 @@ class TopIpsTable extends BaseWidget
     {
         return $table
             ->query($this->getQuery())
+            // This is a GROUP BY aggregate query. Filament otherwise appends an
+            // ORDER BY on the qualified primary key (viewer_requests.id) as a
+            // tiebreaker, which is an ungrouped/nonaggregated column and breaks
+            // under MySQL's only_full_group_by mode.
+            ->defaultKeySort(false)
             ->columns([
                 TextColumn::make('ip')
                     ->label('IP')
@@ -115,6 +119,8 @@ class TopIpsTable extends BaseWidget
                     WHERE b.ip = viewer_requests.ip
                 ) as is_blocked')
             ->groupBy('ip')
-            ->orderByRaw('COUNT(*) DESC');   // 👈 move sorting here
+            ->orderByRaw('COUNT(*) DESC')
+            // Stable tiebreaker; `ip` is grouped, so it's safe under only_full_group_by.
+            ->orderBy('ip');
     }
 }

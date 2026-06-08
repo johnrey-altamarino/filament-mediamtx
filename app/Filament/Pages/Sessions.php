@@ -2,24 +2,24 @@
 
 namespace App\Filament\Pages;
 
-use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Actions\Action;
 use App\Models\BlockedIp;
 use App\Models\MediamtxSession;
 use App\Services\MediamtxApi;
 use App\Services\MediamtxSessionRefresher;
+use App\Support\UserAgentLabel;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Filament\Tables;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
 
 class Sessions extends Page implements HasTable
 {
     use InteractsWithTable;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-signal';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-signal';
 
     protected string $view = 'filament.pages.sessions';
 
@@ -43,6 +43,13 @@ class Sessions extends Page implements HasTable
                 TextColumn::make('state')->badge()->sortable(),
                 TextColumn::make('session_id')->label('Session ID')->searchable(),
                 TextColumn::make('path')->searchable(),
+                TextColumn::make('user_agent')
+                    ->label('Client')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => UserAgentLabel::format($state))
+                    ->tooltip(fn (?string $state) => $state)
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('ip')->label('IP')->searchable(),
                 TextColumn::make('last_seen_at')->label('Last Seen')->since()->toggleable(isToggledHiddenByDefault: true),
             ])

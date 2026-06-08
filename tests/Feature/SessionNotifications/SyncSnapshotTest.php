@@ -26,14 +26,19 @@ class SyncSnapshotTest extends TestCase
         $api->shouldReceive('listWebRtcSessions')->andReturn([
             'items' => [
                 ['id' => 'live-1', 'state' => 'read', 'path' => 'live/cam1',
-                    'query' => '', 'remoteAddr' => '1.2.3.4:5555', 'created' => '2026-06-04T10:00:00Z'],
+                    'query' => '', 'remoteAddr' => '1.2.3.4:5555', 'created' => '2026-06-04T10:00:00Z',
+                    'userAgent' => 'Mozilla/5.0 (OBS-Studio/32.1.1; Windows x86_64; en-US)'],
             ],
         ]);
         $this->app->instance(MediamtxApi::class, $api);
 
         app(MediamtxSessionRefresher::class)->syncSnapshot();
 
-        $this->assertDatabaseHas('mediamtx_sessions', ['session_id' => 'live-1', 'ip' => '1.2.3.4']);
+        $this->assertDatabaseHas('mediamtx_sessions', [
+            'session_id' => 'live-1',
+            'ip' => '1.2.3.4',
+            'user_agent' => 'Mozilla/5.0 (OBS-Studio/32.1.1; Windows x86_64; en-US)',
+        ]);
         $this->assertDatabaseMissing('mediamtx_sessions', ['session_id' => 'old']);
     }
 

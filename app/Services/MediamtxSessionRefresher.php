@@ -26,6 +26,7 @@ class MediamtxSessionRefresher
                 'remote_addr' => $remote,
                 'ip' => MediamtxApi::ipFromRemoteAddr($remote),
                 'created' => (string) data_get($it, 'created', ''),
+                'user_agent' => (string) data_get($it, 'userAgent', '') ?: null,
             ];
         })->filter(fn ($r) => $r['session_id'] !== '')->values();
 

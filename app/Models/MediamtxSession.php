@@ -8,7 +8,7 @@ class MediamtxSession extends Model
 {
     protected $fillable = [
         'type', 'session_id', 'state', 'path', 'query', 'remote_addr', 'ip', 'created',
-        'last_seen_at',
+        'user_agent', 'last_seen_at',
     ];
 
     protected $casts = [
