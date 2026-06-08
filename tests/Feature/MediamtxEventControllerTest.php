@@ -16,6 +16,15 @@ class MediamtxEventControllerTest extends TestCase
         config(['services.mediamtx.webhook_secret' => 's3cret']);
     }
 
+    /**
+     * The controller always queries the Control API to enrich the client (UA),
+     * so stub an empty session list for tests that don't exercise enrichment.
+     */
+    private function fakeNoSessions(): void
+    {
+        Http::fake(['*/v3/webrtcsessions/list' => Http::response(['items' => []], 200)]);
+    }
+
     private function postEvent(array $payload)
     {
         return $this->withHeaders(['X-Webhook-Secret' => 's3cret'])
@@ -25,6 +34,7 @@ class MediamtxEventControllerTest extends TestCase
     public function test_ready_event_returns_204_and_queues_publisher_alert(): void
     {
         Queue::fake();
+        $this->fakeNoSessions();
 
         $this->postEvent(['event' => 'ready', 'path' => 'live/cam1', 'id' => 'pub-1', 'ip' => '1.2.3.4'])
             ->assertNoContent();
@@ -39,6 +49,7 @@ class MediamtxEventControllerTest extends TestCase
     public function test_read_event_queues_viewer_alert(): void
     {
         Queue::fake();
+        $this->fakeNoSessions();
 
         $this->postEvent(['event' => 'read', 'path' => 'live/cam1', 'id' => 'r-1', 'ip' => '9.9.9.9'])
             ->assertNoContent();
@@ -83,6 +94,7 @@ class MediamtxEventControllerTest extends TestCase
     public function test_event_includes_protocol_type_when_provided(): void
     {
         Queue::fake();
+        $this->fakeNoSessions();
 
         $this->postEvent(['event' => 'ready', 'path' => 'live/cam1', 'id' => 'p1', 'ip' => '1.2.3.4', 'type' => 'webRTCSession'])
             ->assertNoContent();
@@ -93,6 +105,7 @@ class MediamtxEventControllerTest extends TestCase
     public function test_read_event_includes_correlated_referer_and_session_id(): void
     {
         Queue::fake();
+        $this->fakeNoSessions();
         Cache::put('mtx:referer:9.9.9.9:live/cam1', 'https://embed.example/page', now()->addHour());
 
         $this->postEvent(['event' => 'read', 'path' => 'live/cam1', 'id' => 'r-77', 'ip' => '9.9.9.9'])
@@ -121,6 +134,36 @@ class MediamtxEventControllerTest extends TestCase
         Queue::assertPushed(SendTelegramMessage::class, function (SendTelegramMessage $job) {
             return str_contains($job->text, 'Viewer left') && str_contains($job->text, '198.51.100.9');
         });
+    }
+
+    public function test_started_event_enriches_client_from_control_api(): void
+    {
+        Queue::fake();
+        Http::fake(['*/v3/webrtcsessions/list' => Http::response(['items' => [
+            ['id' => 'pub-ua', 'remoteAddr' => '203.0.113.7:5555',
+                'userAgent' => 'Mozilla/5.0 (OBS-Studio/32.1.1; Windows x86_64; en-US)'],
+        ]], 200)]);
+
+        $this->postEvent(['event' => 'ready', 'path' => 'live/cam1', 'id' => 'pub-ua'])
+            ->assertNoContent();
+
+        Queue::assertPushed(SendTelegramMessage::class, fn (SendTelegramMessage $job) => str_contains($job->text, 'Client:')
+            && str_contains($job->text, 'OBS Studio'));
+    }
+
+    public function test_leave_event_reuses_client_cached_at_start(): void
+    {
+        Queue::fake();
+
+        // The "started" event cached the client; by "ended" the session has left
+        // the API (empty list), so the alert must fall back to the cached UA.
+        Cache::put('mtx:sessionua:r-ua', 'Mozilla/5.0 (OBS-Studio/32.1.1; Windows x86_64; en-US)', now()->addHour());
+        $this->fakeNoSessions();
+
+        $this->postEvent(['event' => 'unread', 'path' => 'live/cam1', 'id' => 'r-ua'])->assertNoContent();
+
+        Queue::assertPushed(SendTelegramMessage::class, fn (SendTelegramMessage $job) => str_contains($job->text, 'Viewer left')
+            && str_contains($job->text, 'OBS Studio'));
     }
 
     public function test_unknown_event_returns_204_and_queues_nothing(): void

@@ -36,4 +36,27 @@ class MediamtxApiTest extends TestCase
 
         $this->assertSame('', app(MediamtxApi::class)->findSessionIp('a'));
     }
+
+    public function test_find_session_returns_ip_and_user_agent_by_id(): void
+    {
+        Http::fake(['*/v3/webrtcsessions/list' => Http::response(['items' => [
+            ['id' => 'a', 'remoteAddr' => '1.1.1.1:1', 'userAgent' => 'OBS-Studio/32.1.1'],
+            ['id' => 'b', 'remoteAddr' => '2.2.2.2:2'],
+        ]], 200)]);
+
+        $api = app(MediamtxApi::class);
+
+        $this->assertSame(['ip' => '1.1.1.1', 'userAgent' => 'OBS-Studio/32.1.1'], $api->findSession('a'));
+        // Session without a userAgent field → empty string, not null.
+        $this->assertSame(['ip' => '2.2.2.2', 'userAgent' => ''], $api->findSession('b'));
+        $this->assertSame(['ip' => '', 'userAgent' => ''], $api->findSession('missing'));
+        $this->assertSame(['ip' => '', 'userAgent' => ''], $api->findSession(''));
+    }
+
+    public function test_find_session_returns_empty_on_api_failure(): void
+    {
+        Http::fake(['*' => Http::response('err', 500)]);
+
+        $this->assertSame(['ip' => '', 'userAgent' => ''], app(MediamtxApi::class)->findSession('a'));
+    }
 }

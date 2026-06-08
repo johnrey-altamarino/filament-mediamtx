@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use Throwable;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use Throwable;
 
 class MediamtxApi
 {
@@ -37,31 +37,46 @@ class MediamtxApi
     }
 
     /**
-     * Resolve the client IP for a live WebRTC session by its id.
+     * Resolve client fields for a live WebRTC session by its id:
+     * ['ip' => ..., 'userAgent' => ...].
      *
-     * Used to enrich webhook alerts, since MediaMTX hooks don't expose the IP.
-     * Best-effort: returns '' when the id is unknown, the session has already
-     * ended, or the API is unreachable — the caller falls back to "unknown".
+     * Used to enrich webhook alerts, since MediaMTX hooks expose neither the IP
+     * nor the User-Agent. Best-effort: both are '' when the id is unknown, the
+     * session has already ended, or the API is unreachable.
      */
-    public function findSessionIp(string $id): string
+    public function findSession(string $id): array
     {
+        $empty = ['ip' => '', 'userAgent' => ''];
+
         if ($id === '') {
-            return '';
+            return $empty;
         }
 
         try {
             $items = data_get($this->listWebRtcSessions(), 'items', []);
         } catch (Throwable $e) {
-            return '';
+            return $empty;
         }
 
         foreach ($items as $it) {
             if ((string) data_get($it, 'id', '') === $id) {
-                return self::ipFromRemoteAddr((string) data_get($it, 'remoteAddr', ''));
+                return [
+                    'ip' => self::ipFromRemoteAddr((string) data_get($it, 'remoteAddr', '')),
+                    'userAgent' => (string) data_get($it, 'userAgent', ''),
+                ];
             }
         }
 
-        return '';
+        return $empty;
+    }
+
+    /**
+     * Resolve just the client IP for a live WebRTC session by its id.
+     * Returns '' when unknown — the caller falls back to "unknown".
+     */
+    public function findSessionIp(string $id): string
+    {
+        return $this->findSession($id)['ip'];
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Jobs\SendTelegramMessage;
+use App\Support\UserAgentLabel;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -41,6 +42,10 @@ class SessionNotifier
         $ip = $event->ip !== '' ? htmlspecialchars($event->ip, ENT_QUOTES | ENT_HTML5, 'UTF-8') : 'unknown';
         $protocol = $this->protocolLabel($event->type);
         $referer = $event->referer !== '' ? htmlspecialchars($event->referer, ENT_QUOTES | ENT_HTML5, 'UTF-8') : '';
+        // Parse the raw UA to a short label (e.g. "OBS Studio") before escaping.
+        $client = $event->userAgent !== ''
+            ? htmlspecialchars(UserAgentLabel::format($event->userAgent), ENT_QUOTES | ENT_HTML5, 'UTF-8')
+            : '';
         $when = Carbon::parse($event->occurredAt)->timezone('Asia/Manila')->format('M d, Y h:i:s A');
 
         $lines = [
@@ -52,6 +57,9 @@ class SessionNotifier
             $lines[] = "🔌 <b>Type:</b> {$protocol}";
         }
         $lines[] = "🌐 <b>IP:</b> <code>{$ip}</code>";
+        if ($client !== '') {
+            $lines[] = "💻 <b>Client:</b> {$client}";
+        }
         if ($referer !== '') {
             $lines[] = "🔗 <b>Referer:</b> {$referer}";
         }

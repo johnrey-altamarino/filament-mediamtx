@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 class SessionNotifierTest extends TestCase
 {
-    private function event(string $kind, string $ip = '1.2.3.4', string $sessionId = 'sess-1', string $path = 'live/cam1'): SessionEvent
+    private function event(string $kind, string $ip = '1.2.3.4', string $sessionId = 'sess-1', string $path = 'live/cam1', string $userAgent = ''): SessionEvent
     {
         return new SessionEvent(
             kind: $kind,
@@ -19,6 +19,7 @@ class SessionNotifierTest extends TestCase
             ip: $ip,
             state: $kind,
             occurredAt: '2026-06-04T10:00:00Z',
+            userAgent: $userAgent,
         );
     }
 
@@ -32,6 +33,28 @@ class SessionNotifierTest extends TestCase
             return str_contains($job->text, 'Publisher started')
                 && str_contains($job->text, 'live/cam1');
         });
+    }
+
+    public function test_client_line_shows_parsed_user_agent_when_present(): void
+    {
+        Queue::fake();
+
+        app(SessionNotifier::class)->notify(
+            $this->event('publish', userAgent: 'Mozilla/5.0 (OBS-Studio/32.1.1; Windows x86_64; en-US)'),
+            'started',
+        );
+
+        Queue::assertPushed(SendTelegramMessage::class, fn (SendTelegramMessage $job) => str_contains($job->text, 'Client:')
+            && str_contains($job->text, 'OBS Studio'));
+    }
+
+    public function test_client_line_is_omitted_when_user_agent_is_empty(): void
+    {
+        Queue::fake();
+
+        app(SessionNotifier::class)->notify($this->event('publish'), 'started');
+
+        Queue::assertPushed(SendTelegramMessage::class, fn (SendTelegramMessage $job) => ! str_contains($job->text, 'Client:'));
     }
 
     public function test_duplicate_event_for_same_session_is_suppressed(): void

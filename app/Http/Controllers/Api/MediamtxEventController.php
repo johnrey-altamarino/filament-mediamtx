@@ -32,19 +32,32 @@ class MediamtxEventController
         if ($kind !== null) {
             $id = $data['id'] ?? '';
 
-            // MediaMTX hooks don't expose the client IP, so resolve it from the
-            // Control API by session id. On "started" the session is live and the
-            // lookup succeeds; cache it so the matching "ended" event (when the
-            // session has already left the API) can still report the IP.
+            // MediaMTX hooks expose neither the client IP nor the User-Agent, so
+            // resolve both from the Control API by session id in a single lookup.
+            // On "started" the session is live and the lookup succeeds; cache them
+            // so the matching "ended" event (when the session has already left the
+            // API) can still report them.
             $ip = $data['ip'] ?? '';
-            if ($ip === '') {
-                $ip = $api->findSessionIp($id);
-            }
+            $userAgent = '';
 
-            if ($id !== '' && $ip !== '') {
-                Cache::put("mtx:sessionip:{$id}", $ip, now()->addHours(6));
-            } elseif ($id !== '') {
-                $ip = (string) Cache::get("mtx:sessionip:{$id}", '');
+            if ($id !== '') {
+                $session = $api->findSession($id);
+
+                if ($ip === '') {
+                    $ip = $session['ip'];
+                }
+                $userAgent = $session['userAgent'];
+
+                if ($ip !== '' || $userAgent !== '') {
+                    Cache::put("mtx:sessionip:{$id}", $ip, now()->addHours(6));
+                    Cache::put("mtx:sessionua:{$id}", $userAgent, now()->addHours(6));
+                }
+                if ($ip === '') {
+                    $ip = (string) Cache::get("mtx:sessionip:{$id}", '');
+                }
+                if ($userAgent === '') {
+                    $userAgent = (string) Cache::get("mtx:sessionua:{$id}", '');
+                }
             }
 
             // Referer is only known to /api/read (viewers); correlate it by ip+path.
@@ -62,6 +75,7 @@ class MediamtxEventController
                 occurredAt: now()->toIso8601String(),
                 type: $data['type'] ?? '',
                 referer: $referer,
+                userAgent: $userAgent,
             ), $phase);
         }
 

@@ -13,5 +13,6 @@ final class SessionEvent
         public readonly string $occurredAt,
         public readonly string $type = '',
         public readonly string $referer = '',
+        public readonly string $userAgent = '',
     ) {}
 }
