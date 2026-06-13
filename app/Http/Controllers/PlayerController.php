@@ -30,10 +30,14 @@ class PlayerController extends Controller
             $embedSource = $this->originOf(($origin !== '' && $origin !== 'null') ? $origin : $referer);
         }
 
+        if (! $isEmbed && ! $directAllowed) {
+            abort(403);
+        }
+
         return view('player', [
             'whepBaseUrl' => (string) config('services.mediamtx.stream_base_url', ''),
             'tokenEndpoint' => url('/api/read'),
-            'playbackEnabled' => $isEmbed || $directAllowed,
+            'playbackEnabled' => true,
             'embedSource' => $embedSource,
         ]);
     }

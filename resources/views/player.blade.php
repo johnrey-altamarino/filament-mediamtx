@@ -94,7 +94,6 @@
 
 <script>
 const WHEP_BASE_URL = "{{ $whepBaseUrl }}";
-const PLAYBACK_ENABLED = {{ $playbackEnabled ? 'true' : 'false' }};
 const EMBED_SOURCE = @json($embedSource);
 
 let reader = null;
@@ -185,16 +184,10 @@ async function fetchToken() {
   }
 }
 
-// Kick off token fetch immediately — runs in parallel with reader.js codec probing
-let tokenPromise = PLAYBACK_ENABLED ? fetchToken() : null;
+let tokenPromise = fetchToken();
 
 async function initPlayer() {
   if (starting) return;
-  if (!PLAYBACK_ENABLED) {
-    setStatus("Direct playback is disabled.", true);
-    showLoader(false);
-    return;
-  }
   starting = true;
 
   setStatus("Connecting…");
@@ -249,7 +242,6 @@ async function initPlayer() {
 
 // Reconnect immediately when tab becomes visible if stream is not active
 document.addEventListener("visibilitychange", () => {
-  if (!PLAYBACK_ENABLED) return;
   if (document.visibilityState === "visible" && (!reader || videoEl.paused || videoEl.readyState < 2)) {
     if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
     clearWatchdog();
