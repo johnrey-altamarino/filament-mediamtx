@@ -82,7 +82,7 @@
 </head>
 <body>
 
-<video id="myvideo" autoplay playsinline muted disablepictureinpicture></video>
+<video id="myvideo" playsinline disablepictureinpicture></video>
 <div id="loader">
   <div id="spinner" class="spinner"></div>
   <div id="status"></div>
@@ -104,7 +104,20 @@ let watchdogTimer = null;
 let retryTimer = null;
 let starting = false;
 
-const stream = new URLSearchParams(window.location.search).get("stream");
+const statusEl = document.getElementById("status");
+const videoEl = document.getElementById("myvideo");
+const spinnerEl = document.getElementById("spinner");
+const tapOverlay = document.getElementById("tap-overlay");
+
+const params = new URLSearchParams(window.location.search);
+const stream = params.get("stream");
+const autoplay = params.get("autoplay") !== "false";
+const controls = params.get("controls") === "true";
+const mute = params.get("mute") !== "false";
+
+if (autoplay) videoEl.setAttribute("autoplay", "");
+if (controls) videoEl.setAttribute("controls", "");
+if (mute) videoEl.muted = true;
 
 if (!stream) {
   document.body.innerHTML = '<p style="color:#fff;font-family:sans-serif;text-align:center;margin-top:2rem">Missing required <code>?stream=</code> parameter.</p>';
@@ -112,10 +125,6 @@ if (!stream) {
 }
 
 const whepUrl = `${WHEP_BASE_URL}/${stream}/whep`;
-const statusEl = document.getElementById("status");
-const videoEl = document.getElementById("myvideo");
-const spinnerEl = document.getElementById("spinner");
-const tapOverlay = document.getElementById("tap-overlay");
 
 function setStatus(msg, isError = false) {
   statusEl.textContent = msg;
