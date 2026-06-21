@@ -113,11 +113,11 @@ const params = new URLSearchParams(window.location.search);
 const stream = params.get("stream");
 const autoplay = params.get("autoplay") !== "false";
 const controls = params.get("controls") === "true";
-const mute = params.get("mute") !== "false";
+const muted = params.get("muted") !== "false";
 
 if (autoplay) videoEl.setAttribute("autoplay", "");
 if (controls) videoEl.setAttribute("controls", "");
-if (mute) videoEl.muted = true;
+if (muted) videoEl.muted = true;
 
 if (!stream) {
   document.body.innerHTML = '<p style="color:#fff;font-family:sans-serif;text-align:center;margin-top:2rem">Missing required <code>?stream=</code> parameter.</p>';
@@ -235,12 +235,17 @@ async function initPlayer() {
     onTrack: (evt) => {
       clearWatchdog();
       videoEl.srcObject = evt.streams[0];
-      videoEl.play().catch((err) => {
-        if (err.name === "NotAllowedError") {
-          showLoader(false);
-          tapOverlay.classList.remove("hidden");
-        }
-      });
+      if (autoplay) {
+        videoEl.play().catch((err) => {
+          if (err.name === "NotAllowedError") {
+            showLoader(false);
+            tapOverlay.classList.remove("hidden");
+          }
+        });
+      } else {
+        showLoader(false);
+        if (!controls) tapOverlay.classList.remove("hidden");
+      }
       setStatus("");
       retryDelay = 2000;
     },
