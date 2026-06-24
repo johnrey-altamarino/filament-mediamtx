@@ -2,26 +2,29 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\ClientIpResolver;
 use Closure;
 use Illuminate\Http\Request;
 
 class AllowMediamtxOnly
 {
+    public function __construct(private readonly ClientIpResolver $resolver) {}
+
     public function handle(Request $request, Closure $next)
-{
-    // Real client IP (Cloudflare safe)
-    $ip = $request->header('cf-connecting-ip') ?? $request->ip() ?? $request->getClientIp('X-Forwarded-For') ?? $request->server('REMOTE_ADDR');
+    {
+        $ip = $this->resolver->resolve($request);
 
-    $allowedIps = collect(explode(',', config('services.mediamtx.allowed_ips', '')))
-        ->map(fn ($ip) => trim($ip))
-        ->filter()
-        ->values()
-        ->all();
+        $allowedIps = collect(explode(',', config('services.mediamtx.allowed_ips', '')))
+            ->map(fn ($ip) => trim($ip))
+            ->filter()
+            ->values()
+            ->all();
 
-    if (! in_array($ip, $allowedIps, true)) {
-        abort(403);
+        // Note: if MEDIAMTX_ALLOWED_IPS is unset/empty, all requests are denied (fail-closed by design).
+        if (! in_array($ip, $allowedIps, true)) {
+            abort(403);
+        }
+
+        return $next($request);
     }
-
-    return $next($request);
-}
 }

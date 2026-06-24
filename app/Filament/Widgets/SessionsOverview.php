@@ -10,12 +10,13 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 class SessionsOverview extends BaseWidget
 {
     protected static ?int $sort = 1;
-    protected static ?string $pollingInterval = '60s';
+
+    protected ?string $pollingInterval = '60s';
 
     protected function getStats(): array
     {
-        // Refresh snapshot before counting
-        app(MediamtxSessionRefresher::class)->refresh();
+        // Refresh snapshot before counting — runs only while the dashboard is open.
+        app(MediamtxSessionRefresher::class)->syncSnapshot();
 
         $total = MediamtxSession::query()->count();
 

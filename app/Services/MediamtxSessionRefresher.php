@@ -3,16 +3,16 @@
 namespace App\Services;
 
 use App\Models\MediamtxSession;
-use App\Services\MediamtxApi;
 
 class MediamtxSessionRefresher
 {
-    public function refresh(): void
+    public function __construct(private readonly MediamtxApi $api) {}
+
+    public function syncSnapshot(): void
     {
-        $api = app(MediamtxApi::class);
         $now = now();
 
-        $items = data_get($api->listWebRtcSessions(), 'items', []);
+        $items = data_get($this->api->listWebRtcSessions(), 'items', []);
 
         $rows = collect($items)->map(function ($it) {
             $remote = (string) data_get($it, 'remoteAddr', '');
@@ -24,12 +24,11 @@ class MediamtxSessionRefresher
                 'path' => (string) data_get($it, 'path', ''),
                 'query' => (string) data_get($it, 'query', ''),
                 'remote_addr' => $remote,
-                'ip' => $this->extractIp($remote),
+                'ip' => MediamtxApi::ipFromRemoteAddr($remote),
                 'created' => (string) data_get($it, 'created', ''),
-                'bytes_received' => (int) data_get($it, 'bytesReceived', 0),
-                'bytes_sent' => (int) data_get($it, 'bytesSent', 0),
+                'user_agent' => (string) data_get($it, 'userAgent', '') ?: null,
             ];
-        })->filter(fn ($r) => $r['session_id'] !== '');
+        })->filter(fn ($r) => $r['session_id'] !== '')->values();
 
         foreach ($rows as $row) {
             MediamtxSession::updateOrCreate(
@@ -38,21 +37,7 @@ class MediamtxSessionRefresher
             );
         }
 
-        // delete stale rows not seen for 20s
-        MediamtxSession::where('last_seen_at', '<', now()->subSeconds(20))->delete();
-    }
-
-    private function extractIp(string $remoteAddr): string
-    {
-        if (str_starts_with($remoteAddr, '[')) {
-            $end = strpos($remoteAddr, ']');
-            return $end !== false ? substr($remoteAddr, 1, $end - 1) : $remoteAddr;
-        }
-
-        if (substr_count($remoteAddr, ':') === 1) {
-            return explode(':', $remoteAddr, 2)[0];
-        }
-
-        return $remoteAddr;
+        $stale = (int) config('services.mediamtx.stale_seconds', 20);
+        MediamtxSession::where('last_seen_at', '<', now()->subSeconds($stale))->delete();
     }
 }

@@ -41,19 +41,30 @@ return [
     ],
 
     'mediamtx' => [
-        'api_base_url'   => env('MEDIAMTX_API_BASE_URL', 'http://127.0.0.1:9997'),
-        'api_user'       => env('MEDIAMTX_API_USER'),
-        'api_pass'       => env('MEDIAMTX_API_PASS'),
-        'api_timeout'    => (int) env('MEDIAMTX_API_TIMEOUT', 3),
-        'allowed_ips'    => env('MEDIAMTX_ALLOWED_IPS', ''),
+        'api_base_url' => env('MEDIAMTX_API_BASE_URL', 'http://127.0.0.1:9997'),
+        'api_user' => env('MEDIAMTX_API_USER'),
+        'api_pass' => env('MEDIAMTX_API_PASS'),
+        'api_timeout' => (int) env('MEDIAMTX_API_TIMEOUT', 3),
+        'allowed_ips' => env('MEDIAMTX_ALLOWED_IPS', ''),
+        'stale_seconds' => (int) env('MEDIAMTX_SESSION_STALE_SECONDS', 20),
+        'stream_base_url' => env('MEDIAMTX_STREAM_BASE_URL', 'https://stream.jrta.online'),
+        'trusted_proxies' => env('MEDIAMTX_TRUSTED_PROXIES', ''),
+        'webhook_secret' => env('MEDIAMTX_WEBHOOK_SECRET'),
     ],
 
     'mediamtx_jwt' => [
         'private_key_path' => env('JWT_PRIVATE_KEY_PATH', 'storage/app/jwt/private.pem'),
-        'public_key_path'  => env('JWT_PUBLIC_KEY_PATH', 'storage/app/jwt/public.pem'),
-        'kid'              => env('JWT_KID', 'mediamtx-1'),
-        'iss'              => env('JWT_ISSUER'),
-        'ttl'              => (int) env('JWT_TTL_SECONDS', 60),
+        'public_key_path' => env('JWT_PUBLIC_KEY_PATH', 'storage/app/jwt/public.pem'),
+        'kid' => env('JWT_KID', 'mediamtx-1'),
+        'iss' => env('JWT_ISSUER'),
+        'ttl' => (int) env('JWT_TTL_SECONDS', 60),
+    ],
+
+    'telegram' => [
+        'enabled' => (bool) env('TELEGRAM_ALERTS_ENABLED', false),
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'chat_id' => env('TELEGRAM_CHAT_ID'),
+        'timeout' => (int) env('TELEGRAM_TIMEOUT', 5),
     ],
 
 ];

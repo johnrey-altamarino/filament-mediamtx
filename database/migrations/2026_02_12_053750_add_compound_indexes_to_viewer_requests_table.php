@@ -5,19 +5,31 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
-
+return new class extends Migration
+{
     private function hasIndex(string $table, string $indexName): bool
     {
+        // SQLite does not have information_schema; use pragma instead
+        if (DB::getDriverName() !== 'mysql') {
+            $indexes = DB::select("PRAGMA index_list(\"{$table}\")");
+            foreach ($indexes as $index) {
+                if ($index->name === $indexName) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         $db = DB::getDatabaseName();
 
-        $result = DB::selectOne("
+        $result = DB::selectOne('
             SELECT COUNT(1) AS c
             FROM information_schema.statistics
             WHERE table_schema = ?
               AND table_name = ?
               AND index_name = ?
-        ", [$db, $table, $indexName]);
+        ', [$db, $table, $indexName]);
 
         return (int) ($result->c ?? 0) > 0;
     }
@@ -53,15 +65,15 @@ return new class extends Migration {
             });
         }
 
-        // Prefix index for TEXT user_agent
-        if (! $this->hasIndex('viewer_requests', 'vr_user_agent_prefix_idx')) {
+        // Prefix index for TEXT user_agent (MySQL only)
+        if (DB::getDriverName() === 'mysql' && ! $this->hasIndex('viewer_requests', 'vr_user_agent_prefix_idx')) {
             DB::statement('CREATE INDEX vr_user_agent_prefix_idx ON viewer_requests (user_agent(120))');
         }
     }
 
     public function down(): void
     {
-        if ($this->hasIndex('viewer_requests', 'vr_user_agent_prefix_idx')) {
+        if (DB::getDriverName() === 'mysql' && $this->hasIndex('viewer_requests', 'vr_user_agent_prefix_idx')) {
             DB::statement('DROP INDEX vr_user_agent_prefix_idx ON viewer_requests');
         }
 

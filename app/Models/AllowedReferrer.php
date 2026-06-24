@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class AllowedReferrer extends Model
 {
-
     public function matches(string $referer): bool
     {
         if (! $this->is_enabled) {
@@ -18,11 +17,14 @@ class AllowedReferrer extends Model
         }
 
         // Wildcard mode: https://*.armtech.one
+        // "*" matches within the host/authority only — it must not span into the
+        // path (/), query (?) or fragment (#), otherwise an attacker-controlled
+        // host like https://evil.com/.armtech.one would satisfy the pattern.
         $pattern = preg_quote($this->pattern, '~');
-        $pattern = str_replace('\*', '.*', $pattern);
-        $pattern = '^' . $pattern . '(/|$)';
+        $pattern = str_replace('\*', '[^/?#]*', $pattern);
+        $pattern = '^'.$pattern.'(/|$)';
 
-        return preg_match('~' . $pattern . '~i', $referer) === 1;
+        return preg_match('~'.$pattern.'~i', $referer) === 1;
     }
 
     protected $fillable = [

@@ -4,21 +4,26 @@ namespace App\Filament\Widgets;
 
 use App\Models\BlockedIp;
 use App\Models\ViewerRequest;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
-use Filament\Tables;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class TopIpsTable extends BaseWidget
 {
     protected static ?string $heading = 'Top IPs (Last 12 Hours)';
+
     protected static ?int $sort = 30;
+
     protected static ?string $pollingInterval = '60s';
 
     protected int|string|array $columnSpan = 'md';
 
-    public function getTableRecordKey($record): string
+    public function getTableRecordKey(Model|array $record): string
     {
         return (string) ($record->ip ?? $record->id ?? '');
     }
@@ -27,40 +32,45 @@ class TopIpsTable extends BaseWidget
     {
         return $table
             ->query($this->getQuery())
+            // This is a GROUP BY aggregate query. Filament otherwise appends an
+            // ORDER BY on the qualified primary key (viewer_requests.id) as a
+            // tiebreaker, which is an ungrouped/nonaggregated column and breaks
+            // under MySQL's only_full_group_by mode.
+            ->defaultKeySort(false)
             ->columns([
-                Tables\Columns\TextColumn::make('ip')
+                TextColumn::make('ip')
                     ->label('IP')
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('requests')
+                TextColumn::make('requests')
                     ->label('Requests')
                     ->numeric()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('unique_streams')
+                TextColumn::make('unique_streams')
                     ->label('Unique Streams')
                     ->numeric()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('unique_devices')
+                TextColumn::make('unique_devices')
                     ->label('Unique Devices')
                     ->numeric()
                     ->sortable(),
 
-                Tables\Columns\IconColumn::make('is_blocked')
+                IconColumn::make('is_blocked')
                     ->label('Blocked')
                     ->boolean()
                     ->sortable(),
             ])
             ->paginated(false)
-            ->actions([
-                Tables\Actions\Action::make('block')
+            ->recordActions([
+                Action::make('block')
                     ->label('Block')
                     ->icon('heroicon-o-no-symbol')
                     ->requiresConfirmation()
                     ->visible(fn ($record) => (int) ($record->is_blocked ?? 0) === 0
-                        && (auth()->user()?->hasAnyRole(['super-admin','moderator']) ?? false))
+                        && (auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false))
                     ->action(function ($record) {
                         BlockedIp::firstOrCreate(
                             ['ip' => $record->ip],
@@ -82,7 +92,7 @@ class TopIpsTable extends BaseWidget
                             ->send();
                     }),
 
-                Tables\Actions\Action::make('copy_ip')
+                Action::make('copy_ip')
                     ->label('Copy')
                     ->icon('heroicon-o-clipboard')
                     ->action(fn () => null)
@@ -92,23 +102,25 @@ class TopIpsTable extends BaseWidget
             ]);
     }
 
-        private function getQuery(): Builder
-        {
-            $since = now()->subHours(12);
+    private function getQuery(): Builder
+    {
+        $since = now()->subHours(12);
 
-            return ViewerRequest::query()
-                ->where('requested_at', '>=', $since)
-                ->where('allowed', true)
-                ->selectRaw('MIN(id) as id')
-                ->selectRaw('ip')
-                ->selectRaw('COUNT(*) as requests')
-                ->selectRaw('COUNT(DISTINCT path) as unique_streams')
-                ->selectRaw('COUNT(DISTINCT user_agent) as unique_devices')
-                ->selectRaw('EXISTS(
+        return ViewerRequest::query()
+            ->where('requested_at', '>=', $since)
+            ->where('allowed', true)
+            ->selectRaw('MIN(id) as id')
+            ->selectRaw('ip')
+            ->selectRaw('COUNT(*) as requests')
+            ->selectRaw('COUNT(DISTINCT path) as unique_streams')
+            ->selectRaw('COUNT(DISTINCT user_agent) as unique_devices')
+            ->selectRaw('EXISTS(
                     SELECT 1 FROM blocked_ips b
                     WHERE b.ip = viewer_requests.ip
                 ) as is_blocked')
-                ->groupBy('ip')
-                ->orderByRaw('COUNT(*) DESC');   // 👈 move sorting here
-        }
+            ->groupBy('ip')
+            ->orderByRaw('COUNT(*) DESC')
+            // Stable tiebreaker; `ip` is grouped, so it's safe under only_full_group_by.
+            ->orderBy('ip');
+    }
 }

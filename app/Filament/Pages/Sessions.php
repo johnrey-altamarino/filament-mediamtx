@@ -6,50 +6,55 @@ use App\Models\BlockedIp;
 use App\Models\MediamtxSession;
 use App\Services\MediamtxApi;
 use App\Services\MediamtxSessionRefresher;
+use App\Support\UserAgentLabel;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Filament\Tables;
-use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
 
 class Sessions extends Page implements HasTable
 {
     use InteractsWithTable;
 
-    protected static ?string $navigationIcon = 'heroicon-o-signal';
-    protected static string $view = 'filament.pages.sessions';
-    protected static ?string $navigationLabel = 'Live Sessions';
-    protected static ?string $navigationGroup = 'Control';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-signal';
 
-    public function mount(): void
-    {
-        $this->refreshSessions();
-    }
+    protected string $view = 'filament.pages.sessions';
+
+    protected static ?string $navigationLabel = 'Live Sessions';
 
     public function refreshSessions(): void
     {
-        app(MediamtxSessionRefresher::class)->refresh();
+        // Sync the snapshot from MediaMTX only while this page is open.
+        // No background process runs; alerting is handled by the MediaMTX webhook.
+        app(MediamtxSessionRefresher::class)->syncSnapshot();
     }
 
-    public function table(Tables\Table $table): Tables\Table
+    public function table(Table $table): Table
     {
         return $table
             // ✅ THIS FIXES "must have a query()"
             ->query(MediamtxSession::query())
             ->columns([
-                Tables\Columns\TextColumn::make('created')->label('Created')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable()->toggleable(),
-                Tables\Columns\TextColumn::make('type')->badge()->sortable()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('state')->badge()->sortable(),
-                Tables\Columns\TextColumn::make('session_id')->label('Session ID')->searchable(),
-                Tables\Columns\TextColumn::make('path')->searchable(),
-                Tables\Columns\TextColumn::make('ip')->label('IP')->searchable(),
-                Tables\Columns\TextColumn::make('created')->label('Created')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('bytes_received')->label('Bytes In')->numeric()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('bytes_sent')->label('Bytes Out')->numeric()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('last_seen_at')->label('Last Seen')->since()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('created')->label('Created')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable()->toggleable(),
+                TextColumn::make('type')->badge()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('state')->badge()->sortable(),
+                TextColumn::make('session_id')->label('Session ID')->searchable(),
+                TextColumn::make('path')->searchable(),
+                TextColumn::make('user_agent')
+                    ->label('Client')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => UserAgentLabel::format($state))
+                    ->tooltip(fn (?string $state) => $state)
+                    ->searchable()
+                    ->toggleable(),
+                TextColumn::make('ip')->label('IP')->searchable(),
+                TextColumn::make('last_seen_at')->label('Last Seen')->since()->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->actions([
-                Tables\Actions\Action::make('kick')
+            ->recordActions([
+                Action::make('kick')
                     ->label('Kick')
                     ->icon('heroicon-o-hand-raised')
                     ->requiresConfirmation()
@@ -70,13 +75,14 @@ class Sessions extends Page implements HasTable
                     })
                     ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false),
 
-                Tables\Actions\Action::make('block_ip')
+                Action::make('block_ip')
                     ->label('Block IP')
                     ->icon('heroicon-o-no-symbol')
                     ->requiresConfirmation()
                     ->action(function (MediamtxSession $record) {
                         if (! $record->ip) {
                             Notification::make()->title('No IP found')->danger()->send();
+
                             return;
                         }
 

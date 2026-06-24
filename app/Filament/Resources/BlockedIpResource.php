@@ -2,10 +2,18 @@
 
 namespace App\Filament\Resources;
 
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use App\Filament\Resources\BlockedIpResource\Pages\ListBlockedIps;
 use App\Filament\Resources\BlockedIpResource\Pages;
 use App\Models\BlockedIp;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -14,72 +22,77 @@ use Illuminate\Database\Eloquent\Model;
 class BlockedIpResource extends Resource
 {
     protected static ?string $model = BlockedIp::class;
-    protected static ?string $navigationIcon = 'heroicon-o-no-symbol';
-    protected static ?string $navigationGroup = 'Control';
+
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-no-symbol';
+
+    protected static string | \UnitEnum | null $navigationGroup = 'Security Control';
+
     protected static ?int $navigationSort = 2;
+
     protected static ?string $modelLabel = 'Blocked IP';
+
     protected static ?string $pluralModelLabel = 'Blocked IPs';
 
     public static function blockedIpFormSchema(): array
     {
         return [
-            Forms\Components\TextInput::make('ip')
+            TextInput::make('ip')
                 ->label('IP Address')
                 ->required()
                 ->maxLength(255)
                 ->unique(ignoreRecord: true)
                 ->rule('ip'),
 
-            Forms\Components\Textarea::make('reason')
+            Textarea::make('reason')
                 ->label('Reason')
                 ->rows(3)
                 ->maxLength(65535),
         ];
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form->schema(self::blockedIpFormSchema());
+        return $schema->components(self::blockedIpFormSchema());
     }
 
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('ip')
+                TextColumn::make('ip')
                     ->label('IP Address')
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('reason')
+                TextColumn::make('reason')
                     ->label('Reason')
                     ->limit(40)
                     ->tooltip(fn (BlockedIp $record) => $record->reason)
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('blockedBy.username')
+                TextColumn::make('blockedBy.username')
                     ->label('Blocked By')
                     ->placeholder('-')
                     ->sortable()
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('blocked_at')
+                TextColumn::make('blocked_at')
                     ->label('Blocked At')
                     ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
             ])
             ->filters([
-                Tables\Filters\Filter::make('last_7_days')
+                Filter::make('last_7_days')
                     ->label('Last 7 days')
                     ->query(fn ($query) => $query->where('blocked_at', '>=', now()->subDays(7))),
             ])
-            ->actions([
-                Tables\Actions\Action::make('edit')
+            ->recordActions([
+                Action::make('edit')
                     ->label('Edit')
                     ->icon('heroicon-o-pencil-square')
                     ->modalHeading('Edit Blocked IP')
                     ->modalWidth('lg')
-                    ->form(self::blockedIpFormSchema())
+                    ->schema(self::blockedIpFormSchema())
                     ->fillForm(fn (BlockedIp $record) => [
                         'ip' => $record->ip,
                         'reason' => $record->reason,
@@ -101,7 +114,7 @@ class BlockedIpResource extends Resource
                     })
                     ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false),
 
-                Tables\Actions\DeleteAction::make()
+                DeleteAction::make()
                     ->label('Unblock')
                     ->modalHeading('Unblock IP')
                     ->before(function (BlockedIp $record) {
@@ -116,10 +129,10 @@ class BlockedIpResource extends Resource
                     })
                     ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false),
             ])
-            ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make()
+            ->toolbarActions([
+                DeleteBulkAction::make()
                     ->label('Unblock selected')
-                    ->before(function (Tables\Actions\DeleteBulkAction $action) {
+                    ->before(function (DeleteBulkAction $action) {
                         $records = $action->getRecords();
 
                         activity('security')
@@ -160,7 +173,7 @@ class BlockedIpResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListBlockedIps::route('/'),
+            'index' => ListBlockedIps::route('/'),
         ];
     }
 }

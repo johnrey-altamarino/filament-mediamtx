@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Middleware\AllowMediamtxOnly;
+use App\Http\Middleware\PlayerAccessMiddleware;
+use App\Http\Middleware\VerifyMediamtxWebhook;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'jwks.ip' => AllowMediamtxOnly::class,
+            'player.access' => PlayerAccessMiddleware::class,
+            'mediamtx.webhook' => VerifyMediamtxWebhook::class,
         ]);
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,

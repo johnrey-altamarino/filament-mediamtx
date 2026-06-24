@@ -2,33 +2,42 @@
 
 namespace App\Http\Controllers\Api;
 
+use Throwable;
 use App\Http\Controllers\Controller;
 use App\Models\AllowedReferrer;
 use App\Models\BlockedIp;
-use Firebase\JWT\JWT;
+use App\Services\ClientIpResolver;
+use App\Services\MediamtxJwtIssuer;
+use App\Services\ViewerRequestLogger;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use App\Models\ViewerRequest;
-use Jenssegers\Agent\Agent;
 
 class ReadTokenController extends Controller
 {
+    public function __construct(
+        private readonly MediamtxJwtIssuer $issuer,
+        private readonly ClientIpResolver $resolver,
+        private readonly ViewerRequestLogger $logger,
+    ) {}
+
     public function __invoke(Request $request)
     {
 
         $data = $request->validate([
             'path' => ['required', 'string', 'max:255'], // MediaMTX path, e.g. "live/stream1"
+            'source' => ['nullable', 'string', 'max:512'], // embedding site origin (set by the player when iframed)
         ]);
         $path = $data['path'];
-        $ip = $this->clientIp($request);
+        $ip = $this->resolver->resolve($request);
         $referer = (string) $request->headers->get('referer', '');
 
         // 1) Blocked IP gate
-        if ($ip && BlockedIp::where('ip', $ip)->exists()) {
-
-            if ($this->shouldLogViewerRequest($request, $ip, $path)) {
-                $this->logViewerRequest($request, $ip, $path, false, 'blocked_ip');
-            }
+        $isBlocked = $ip && cache()->remember(
+            'blocked_ip:'.$ip,
+            now()->addSeconds(30),
+            fn () => BlockedIp::where('ip', $ip)->exists()
+        );
+        if ($isBlocked) {
+            $this->logger->logIfNotThrottled($request, $ip, $path, false, 'blocked_ip');
 
             activity('security')
                 ->withProperties(['ip' => $ip, 'referer' => $referer, 'path' => $path])
@@ -39,9 +48,7 @@ class ReadTokenController extends Controller
 
         // 2) Strict referer gate
         if ($referer === '' || ! $this->refererAllowed($referer)) {
-            if ($this->shouldLogViewerRequest($request, $ip, $path)) {
-                $this->logViewerRequest($request, $ip, $path, false, 'bad_referer');
-            }
+            $this->logger->logIfNotThrottled($request, $ip, $path, false, 'bad_referer');
 
             activity('security')
                 ->withProperties(['ip' => $ip, 'referer' => $referer, 'path' => $path])
@@ -50,59 +57,51 @@ class ReadTokenController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        // 3) Build MediaMTX JWT
-        $now = time();
-        $ttl = config('services.mediamtx_jwt.ttl', 60);
-        $kid = (string) config('services.mediamtx_jwt.kid', 'mediamtx-1');
-        $iss = (string) (config('services.mediamtx_jwt.iss') ?: config('app.url'));
-
-        $privateKeyPath = (string) config('services.mediamtx_jwt.private_key_path', 'storage/app/jwt/private.pem');
-        $privateKey = @file_get_contents(base_path($privateKeyPath));
-
-        if (! is_string($privateKey) || $privateKey === '') {
-            return response()->json(['message' => 'JWT private key not configured'], 500);
+        // 3) Issue read JWT via service
+        try {
+            $tokenData = $this->issuer->issueReadToken($path);
+        } catch (Throwable $e) {
+            return response()->json(['message' => 'Failed to issue token'], 500);
         }
-
-        $payload = [
-            'iss' => $iss,
-            'iat' => $now,
-            'exp' => $now + $ttl,
-            'jti' => (string) Str::uuid(),
-
-            // MediaMTX default claim key is "mediamtx_permissions" :contentReference[oaicite:3]{index=3}
-            'mediamtx_permissions' => [
-                [
-                    'action' => 'read',
-                    'path' => $data['path'],
-                ],
-            ],
-        ];
-
-        $jwt = JWT::encode($payload, $privateKey, 'RS256', $kid);
 
         activity('security')
             ->causedBy(auth()->user() ?? null)
-            ->withProperties(['ip' => $ip, 'referer' => $referer, 'path' => $data['path'], 'exp' => $payload['exp']])
+            ->withProperties(['ip' => $ip, 'referer' => $referer, 'path' => $path, 'exp' => $tokenData['expires_at']])
             ->log('token.read.issued');
 
-        if ($this->shouldLogViewerRequest($request, $ip, $path)) {
-            $this->logViewerRequest($request, $ip, $path, true, null);
+        // Stash the viewing source so the MediaMTX session webhook (which never sees it)
+        // can correlate it by ip+path for viewer alerts. When the player is embedded it
+        // reports the embedding site's origin; otherwise we fall back to the player URL
+        // (direct playback). Best-effort.
+        $embed = trim((string) ($data['source'] ?? ''));
+        $alertSource = $embed !== '' ? ($this->origin($embed) ?? $referer) : $referer;
+        if ($ip) {
+            cache()->put("mtx:referer:{$ip}:{$path}", $alertSource, now()->addHours(6));
         }
 
+        $this->logger->logIfNotThrottled($request, $ip, $path, true, null);
 
-        return response()->json([
-            'id' => $payload['jti'],
-            'token' => $jwt,
-            'expires_at' => $payload['exp'],
-            'expires_at_iso' => now()->setTimestamp($payload['exp'])->toIso8601String(),
-        ]);
+        return response()->json($tokenData);
     }
 
     private function refererAllowed(string $referer): bool
     {
-        $rules = AllowedReferrer::query()
-            ->where('is_enabled', true)
-            ->get();
+        // The player page always fetches tokens from its own origin (APP_URL/play),
+        // whether loaded directly or in an iframe. Iframe protection lives in
+        // PlayerAccessMiddleware; direct-playback control lives in PlayerController.
+        //
+        // Compare origin (scheme + host + port) exactly. A prefix check would let a
+        // look-alike host such as https://app.example.com.evil.com pass the gate.
+        $appOrigin = $this->origin((string) config('app.url'));
+        if ($appOrigin !== null && $this->origin($referer) === $appOrigin) {
+            return true;
+        }
+
+        $rules = cache()->remember(
+            'allowed_referrers',
+            now()->addSeconds(30),
+            fn () => AllowedReferrer::query()->where('is_enabled', true)->get()
+        );
 
         foreach ($rules as $rule) {
             if ($rule->matches($referer)) {
@@ -113,79 +112,22 @@ class ReadTokenController extends Controller
         return false;
     }
 
-    private function clientIp(Request $request): ?string
-        {
-            // Cloudflare (when you deploy behind CF)
-            $cf = $request->headers->get('cf-connecting-ip');
-            if ($cf) return $cf;
-
-            // Proxies
-            $xff = $request->headers->get('x-forwarded-for');
-            if ($xff) {
-                $parts = array_map('trim', explode(',', $xff));
-                return $parts[0] ?? $request->ip();
-            }
-
-            return $request->ip();
+    /**
+     * Extract the origin (scheme://host[:port]) from a URL, lowercased,
+     * or null if it has no scheme/host.
+     */
+    private function origin(string $url): ?string
+    {
+        $parts = parse_url($url);
+        if (! isset($parts['scheme'], $parts['host'])) {
+            return null;
         }
 
-        private function logViewerRequest(
-        Request $request,
-        string $ip,
-        string $path,
-        bool $allowed,
-        ?string $denyReason = null
-    ): void {
-        $ua = (string) $request->userAgent();
-        $referer = (string) $request->headers->get('referer', '');
+        $origin = strtolower($parts['scheme']).'://'.strtolower($parts['host']);
+        if (isset($parts['port'])) {
+            $origin .= ':'.$parts['port'];
+        }
 
-        $agent = new Agent();
-        $agent->setUserAgent($ua);
-
-        $device = 'Unknown';
-        if ($agent->isDesktop()) $device = 'Desktop';
-        elseif ($agent->isTablet()) $device = 'Tablet';
-        elseif ($agent->isMobile()) $device = 'Mobile';
-        elseif ($agent->isRobot()) $device = 'Bot';
-
-        ViewerRequest::create([
-            'ip' => $ip,
-            'path' => $path,
-            'referer' => $referer ?: null,
-            'user_agent' => $ua ?: null,
-
-            'os' => $agent->platform() ?: 'Unknown',
-            'browser' => $agent->browser() ?: 'Unknown',
-            'device' => $device,
-            'device_model' => $agent->device() ?: null,
-
-            'allowed' => $allowed,
-            'deny_reason' => $denyReason,
-            'requested_at' => now(),
-        ]);
+        return $origin;
     }
-
-    private function shouldLogViewerRequest(Request $request, string $ip, string $path): bool
-    {
-        $seconds = (int) config('services.viewer_log.throttle_seconds', 10);
-        if ($seconds <= 0) return true;
-
-        $mode = (string) config('services.viewer_log.throttle_mode', 'ip_path_ua');
-
-        $ua = (string) $request->userAgent();
-        $ref = (string) $request->headers->get('referer', '');
-
-        $keyParts = match ($mode) {
-            'ip_path' => [$ip, $path],
-            'ip_path_ref' => [$ip, $path, $ref],
-            default => [$ip, $path, $ua], // ip_path_ua
-        };
-
-        $key = 'vr:log:' . sha1(implode('|', $keyParts));
-
-        // Cache:add returns true only if key did NOT exist.
-        // So we only log once per TTL window for that fingerprint.
-        return cache()->add($key, 1, now()->addSeconds($seconds));
-    }
-
 }
