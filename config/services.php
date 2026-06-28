@@ -57,6 +57,7 @@ return [
         'public_key_path' => env('JWT_PUBLIC_KEY_PATH', 'storage/app/jwt/public.pem'),
         'kid' => env('JWT_KID', 'mediamtx-1'),
         'iss' => env('JWT_ISSUER'),
+        'aud' => env('JWT_AUDIENCE'),
         'ttl' => (int) env('JWT_TTL_SECONDS', 60),
     ],
 
