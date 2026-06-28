@@ -5,10 +5,7 @@ return [
 
     'allowed_methods' => ['POST', 'OPTIONS'],
 
-    'allowed_origins' => [
-        'https://platform.jrta.online',
-        'https://auth.jrta.online',
-    ],
+    'allowed_origins' => [env('APP_URL', 'http://localhost')],
 
     'allowed_origins_patterns' => [],
 
