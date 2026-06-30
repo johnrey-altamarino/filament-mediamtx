@@ -34,6 +34,14 @@ already returns `true` when the referer origin equals the app origin
 ([ReadTokenController.php:87-98](../../../app/Http/Controllers/Api/ReadTokenController.php#L87-L98)).
 **No changes to `ReadTokenController` or `PlayerAccessMiddleware`.**
 
+### Constraint: do not touch the existing player
+
+The existing public player stays **untouched** — no edits to the `GET /play` route,
+`PlayerController`, `PlayerAccessMiddleware`, or `resources/views/player.blade.php`. The internal
+monitor player **reuses `player.blade.php` read-only** (renders it with the same view variables,
+no template changes) and adds only the new `MonitorPlayerController`. `reader.js` is likewise reused
+unmodified.
+
 ## Components
 
 ### 1. `MediamtxApi::listPaths(): array`
