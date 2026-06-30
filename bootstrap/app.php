@@ -30,6 +30,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 | Request::HEADER_X_FORWARDED_PROTO,
         );
 
+        $middleware->redirectTo(function (Request $request) {
+            try {
+                return route('login');
+            } catch (\Exception $e) {
+                return '/login';
+            }
+        });
+
         $middleware->alias([
             'jwks.ip' => AllowMediamtxOnly::class,
             'player.access' => PlayerAccessMiddleware::class,

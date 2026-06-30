@@ -12,7 +12,7 @@ class MonitorPlayerControllerTest extends TestCase
 
     public function test_guest_is_redirected_to_login(): void
     {
-        $this->get('/monitor/play?stream=live/a')->assertRedirect(route('login'));
+        $this->get('/monitor/play?stream=live/a')->assertRedirect('/login');
     }
 
     public function test_authenticated_user_gets_player_view_with_self_frame_ancestors(): void
