@@ -6,6 +6,7 @@ use App\Http\Middleware\VerifyMediamtxWebhook;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -30,13 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 | Request::HEADER_X_FORWARDED_PROTO,
         );
 
-        $middleware->redirectTo(function (Request $request) {
-            try {
-                return route('login');
-            } catch (\Exception $e) {
-                return '/login';
-            }
-        });
+        $middleware->redirectGuestsTo('/login');
 
         $middleware->alias([
             'jwks.ip' => AllowMediamtxOnly::class,
@@ -44,7 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'mediamtx.webhook' => VerifyMediamtxWebhook::class,
         ]);
         $middleware->api(prepend: [
-            \Illuminate\Http\Middleware\HandleCors::class,
+            HandleCors::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
