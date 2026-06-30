@@ -59,4 +59,15 @@ class MediamtxApiTest extends TestCase
 
         $this->assertSame(['ip' => '', 'userAgent' => ''], app(MediamtxApi::class)->findSession('a'));
     }
+
+    public function test_list_paths_returns_decoded_items(): void
+    {
+        Http::fake(['*/v3/paths/list' => Http::response(['items' => [
+            ['name' => 'live/a', 'ready' => true, 'source' => ['type' => 'webrtcSession']],
+        ]], 200)]);
+
+        $res = app(MediamtxApi::class)->listPaths();
+
+        $this->assertSame('live/a', $res['items'][0]['name']);
+    }
 }

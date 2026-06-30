@@ -31,6 +31,11 @@ class MediamtxApi
         return $this->http()->get('/v3/webrtcsessions/list')->throw()->json();
     }
 
+    public function listPaths(): array
+    {
+        return $this->http()->get('/v3/paths/list')->throw()->json();
+    }
+
     public function kickWebRtc(string $id): void
     {
         $this->http()->post("/v3/webrtcsessions/kick/{$id}")->throw();
