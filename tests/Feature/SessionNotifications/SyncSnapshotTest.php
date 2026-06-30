@@ -42,6 +42,28 @@ class SyncSnapshotTest extends TestCase
         $this->assertDatabaseMissing('mediamtx_sessions', ['session_id' => 'old']);
     }
 
+    public function test_it_stores_the_real_ipv4_from_the_ice_remote_candidate(): void
+    {
+        $api = Mockery::mock(MediamtxApi::class);
+        $api->shouldReceive('listWebRtcSessions')->andReturn([
+            'items' => [
+                // Signaling arrived over IPv6/proxy, but the media UDP path reveals the real IPv4.
+                ['id' => 'live-1', 'state' => 'read', 'path' => 'live/cam1', 'query' => '',
+                    'remoteAddr' => '[2001:db8::1]:443',
+                    'remoteCandidate' => 'prflx/udp/49.146.39.58/10119',
+                    'created' => '2026-06-04T10:00:00Z', 'userAgent' => 'Chrome'],
+            ],
+        ]);
+        $this->app->instance(MediamtxApi::class, $api);
+
+        app(MediamtxSessionRefresher::class)->syncSnapshot();
+
+        $this->assertDatabaseHas('mediamtx_sessions', [
+            'session_id' => 'live-1',
+            'ip' => '49.146.39.58',
+        ]);
+    }
+
     protected function tearDown(): void
     {
         Mockery::close();

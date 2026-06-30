@@ -16,6 +16,51 @@ class MediamtxApiTest extends TestCase
         $this->assertSame('', MediamtxApi::ipFromRemoteAddr(''));
     }
 
+    public function test_ip_from_candidate_parses_ip_from_ice_candidate(): void
+    {
+        $this->assertSame('49.146.39.58', MediamtxApi::ipFromCandidate('prflx/udp/49.146.39.58/10119'));
+        $this->assertSame('192.168.1.74', MediamtxApi::ipFromCandidate('host/udp/192.168.1.74/58898'));
+        $this->assertSame('2001:db8::1', MediamtxApi::ipFromCandidate('host/udp/2001:db8::1/1234'));
+        $this->assertSame('', MediamtxApi::ipFromCandidate(''));
+        $this->assertSame('', MediamtxApi::ipFromCandidate('garbage'));
+        $this->assertSame('', MediamtxApi::ipFromCandidate('prflx/udp/not-an-ip/10119'));
+    }
+
+    public function test_client_ip_prefers_remote_candidate_over_remote_addr(): void
+    {
+        // Media path (UDP) sees the real IPv4 even when signaling arrived over IPv6/proxy.
+        $this->assertSame('49.146.39.58', MediamtxApi::clientIp([
+            'remoteAddr' => '[2001:db8::1]:443',
+            'remoteCandidate' => 'prflx/udp/49.146.39.58/10119',
+        ]));
+
+        // No candidate yet (ICE not established) → fall back to remoteAddr.
+        $this->assertSame('1.2.3.4', MediamtxApi::clientIp([
+            'remoteAddr' => '1.2.3.4:5555',
+        ]));
+
+        // Unparseable candidate → fall back to remoteAddr.
+        $this->assertSame('1.2.3.4', MediamtxApi::clientIp([
+            'remoteAddr' => '1.2.3.4:5555',
+            'remoteCandidate' => 'garbage',
+        ]));
+
+        $this->assertSame('', MediamtxApi::clientIp([]));
+    }
+
+    public function test_find_session_uses_remote_candidate_ip(): void
+    {
+        Http::fake(['*/v3/webrtcsessions/list' => Http::response(['items' => [
+            ['id' => 'a', 'remoteAddr' => '[2001:db8::1]:443',
+                'remoteCandidate' => 'prflx/udp/49.146.39.58/10119', 'userAgent' => 'Chrome'],
+        ]], 200)]);
+
+        $this->assertSame(
+            ['ip' => '49.146.39.58', 'userAgent' => 'Chrome'],
+            app(MediamtxApi::class)->findSession('a')
+        );
+    }
+
     public function test_find_session_ip_matches_by_id(): void
     {
         Http::fake(['*/v3/webrtcsessions/list' => Http::response(['items' => [

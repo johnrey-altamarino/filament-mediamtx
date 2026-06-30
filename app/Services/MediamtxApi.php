@@ -66,7 +66,7 @@ class MediamtxApi
         foreach ($items as $it) {
             if ((string) data_get($it, 'id', '') === $id) {
                 return [
-                    'ip' => self::ipFromRemoteAddr((string) data_get($it, 'remoteAddr', '')),
+                    'ip' => self::clientIp($it),
                     'userAgent' => (string) data_get($it, 'userAgent', ''),
                 ];
             }
@@ -82,6 +82,36 @@ class MediamtxApi
     public function findSessionIp(string $id): string
     {
         return $this->findSession($id)['ip'];
+    }
+
+    /**
+     * Resolve the real client IP for a WebRTC session.
+     *
+     * Prefer the ICE remote candidate: the media (UDP) path connects directly to the
+     * origin, bypassing any HTTP proxy (Cloudflare/Apache) that fronts the WHEP
+     * signaling, so the candidate carries the viewer's true address — typically IPv4,
+     * even when `remoteAddr` (the signaling peer) is a proxy/IPv6 address. The
+     * candidate is only populated once the peer connection is established; until then
+     * fall back to `remoteAddr`.
+     */
+    public static function clientIp(array $session): string
+    {
+        $candidate = self::ipFromCandidate((string) data_get($session, 'remoteCandidate', ''));
+
+        return $candidate !== ''
+            ? $candidate
+            : self::ipFromRemoteAddr((string) data_get($session, 'remoteAddr', ''));
+    }
+
+    /**
+     * Extract the IP from a MediaMTX ICE candidate ("prflx/udp/49.146.39.58/10119").
+     * Returns '' when the candidate is empty or does not hold a valid IP.
+     */
+    public static function ipFromCandidate(string $candidate): string
+    {
+        $ip = explode('/', $candidate)[2] ?? '';
+
+        return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '';
     }
 
     /**

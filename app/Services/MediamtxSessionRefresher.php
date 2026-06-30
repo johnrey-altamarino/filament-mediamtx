@@ -24,7 +24,7 @@ class MediamtxSessionRefresher
                 'path' => (string) data_get($it, 'path', ''),
                 'query' => (string) data_get($it, 'query', ''),
                 'remote_addr' => $remote,
-                'ip' => MediamtxApi::ipFromRemoteAddr($remote),
+                'ip' => MediamtxApi::clientIp($it),
                 'created' => (string) data_get($it, 'created', ''),
                 'user_agent' => (string) data_get($it, 'userAgent', '') ?: null,
             ];
