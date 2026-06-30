@@ -2,7 +2,6 @@
 
 namespace App\Providers\Filament;
 
-use Filament\Pages\Dashboard;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Widgets\BrowserBreakdownChart;
 use App\Filament\Widgets\DeviceBreakdownChart;
@@ -14,7 +13,7 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationItem;
-use Filament\Pages;
+use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -55,6 +54,11 @@ class AdminPanelProvider extends PanelProvider
                     ->url('/play', shouldOpenInNewTab: true)
                     ->icon('heroicon-o-play')
                     ->sort(99),
+                NavigationItem::make('Multistream Monitor')
+                    ->url(fn (): string => route('monitor'), shouldOpenInNewTab: true)
+                    ->icon('heroicon-o-squares-2x2')
+                    ->visible(fn (): bool => auth()->user()?->hasAnyRole(['super-admin', 'moderator', 'monitoring']) ?? false)
+                    ->sort(98),
             ])
             ->middleware([
                 EncryptCookies::class,
