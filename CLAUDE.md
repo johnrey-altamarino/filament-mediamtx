@@ -117,3 +117,7 @@ MySQL in production; all tables use standard Laravel migrations. High-traffic ta
 ### Frontend
 
 Tailwind CSS v4 via `@tailwindcss/vite`. A `clipboard-listener` Blade view is injected into the panel body end to handle the `clipboard-copy` Livewire browser event dispatched by the copy-token action.
+
+## Documentation
+
+Document every meaningful change. After a bug fix, feature, or config/infra change, write or update a guide under `docs/` (Symptom → Root cause → Fix → Verify → Deploy; use `docs/superpowers/plans` + `specs` for planned feature work), and update `README.md` whenever the change affects anything it documents (routes, env vars, architecture, deploy/update steps, features). Keep the README table-of-contents sections in sync.
