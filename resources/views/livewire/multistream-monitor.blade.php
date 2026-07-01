@@ -19,7 +19,7 @@
                         <span class="truncate text-sm font-medium" title="{{ $tile['name'] }}">{{ $tile['name'] }}</span>
                         <span class="text-xs text-neutral-400">{{ $tile['readers'] }} viewers</span>
                     </div>
-                    <div class="aspect-video bg-black">
+                    <div class="aspect-video bg-black" wire:ignore>
                         <iframe
                             src="{{ route('monitor.play', ['stream' => $tile['name'], 'muted' => 'true', 'controls' => 'false', 'autoplay' => 'true']) }}"
                             class="w-full h-full border-0"

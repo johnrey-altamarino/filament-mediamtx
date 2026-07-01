@@ -103,6 +103,8 @@ let refreshTimer = null;
 let watchdogTimer = null;
 let retryTimer = null;
 let starting = false;
+let tokenAbort = null;
+let tearingDown = false;
 
 const statusEl = document.getElementById("status");
 const videoEl = document.getElementById("myvideo");
@@ -158,13 +160,17 @@ tapOverlay.addEventListener("click", () => {
 
 async function fetchToken() {
   for (let attempt = 0; attempt < 3; attempt++) {
+    if (tearingDown) throw new DOMException("torn down", "AbortError");
     if (attempt > 0) await new Promise(r => setTimeout(r, 1500 * attempt));
+
+    tokenAbort = new AbortController();
     try {
       const res = await fetch("{{ $tokenEndpoint }}", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
         credentials: "include",
         body: JSON.stringify({ path: stream, source: EMBED_SOURCE }),
+        signal: tokenAbort.signal,
       });
 
       // Retry on server errors only
@@ -187,6 +193,8 @@ async function fetchToken() {
       }
       return;
     } catch (err) {
+      // Page/iframe is going away — stop cleanly, don't retry.
+      if (err.name === "AbortError") throw err;
       // Don't retry auth denials
       if (err.message.startsWith("Token request denied") || attempt === 2) throw err;
     }
@@ -268,12 +276,20 @@ document.addEventListener("visibilitychange", () => {
 
 // defer scripts execute before DOMContentLoaded, so MediaMTXWebRTCReader is ready here
 window.addEventListener("DOMContentLoaded", initPlayer);
-window.addEventListener("beforeunload", () => {
+function teardown() {
+  tearingDown = true;
   clearWatchdog();
   if (retryTimer) clearTimeout(retryTimer);
   if (refreshTimer) clearTimeout(refreshTimer);
+  if (tokenAbort) tokenAbort.abort();
   if (reader) reader.close();
-});
+}
+
+// pagehide fires reliably when the monitor tears an iframe down; beforeunload
+// covers the standalone tab. Aborting the in-flight /api/read POST here prevents
+// Apache mod_proxy_fcgi from reading a half-sent body (AH01075 → Cloudflare 520).
+window.addEventListener("pagehide", teardown);
+window.addEventListener("beforeunload", teardown);
 </script>
 
 </body>
