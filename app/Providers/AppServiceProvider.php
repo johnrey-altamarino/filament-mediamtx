@@ -2,12 +2,14 @@
 
 namespace App\Providers;
 
-use RuntimeException;
+use App\Http\Responses\LoginResponse;
 use App\Services\ClientIpResolver;
+use Filament\Auth\Http\Responses\Contracts\LoginResponse as LoginResponseContract;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use RuntimeException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -33,6 +35,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->app->bind(LoginResponseContract::class, LoginResponse::class);
+
         RateLimiter::for('token-read', function (Request $request) {
             $ip = app(ClientIpResolver::class)->resolve($request);
 
