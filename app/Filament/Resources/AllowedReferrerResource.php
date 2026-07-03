@@ -2,34 +2,31 @@
 
 namespace App\Filament\Resources;
 
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
-use Filament\Schemas\Schema;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\ToggleColumn;
+use App\Filament\Resources\AllowedReferrerResource\Pages\ListAllowedReferrers;
+use App\Models\AllowedReferrer;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use App\Filament\Resources\AllowedReferrerResource\Pages\ListAllowedReferrers;
-use App\Filament\Resources\AllowedReferrerResource\Pages;
-use App\Models\AllowedReferrer;
-use Filament\Forms;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 
 class AllowedReferrerResource extends Resource
 {
     protected static ?string $model = AllowedReferrer::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-link';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-link';
 
     protected static ?string $navigationLabel = 'Allowed Referrers';
 
     protected static ?int $navigationSort = 2;
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Security Control';
+    protected static string|\UnitEnum|null $navigationGroup = 'Security Control';
 
     public static function referrerFormSchema(): array
     {
@@ -140,7 +137,7 @@ class AllowedReferrerResource extends Resource
     // Access control
     public static function canViewAny(): bool
     {
-        return auth()->user()?->hasAnyRole(['super-admin', 'moderator', 'monitoring']) ?? false;
+        return auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false;
     }
 
     public static function getPages(): array

@@ -1,7 +1,16 @@
 <div wire:poll.12s="refresh" class="min-h-screen bg-neutral-950 text-neutral-100 p-4">
     <div class="flex items-center justify-between mb-4">
         <h1 class="text-lg font-semibold">Multistream Monitor</h1>
-        <span class="text-sm text-neutral-400">{{ count($tiles) }} active</span>
+        <div class="flex items-center gap-3">
+            <span class="text-sm text-neutral-400">{{ count($tiles) }} active</span>
+            <form method="POST" action="{{ route('filament.admin.auth.logout') }}">
+                @csrf
+                <button type="submit"
+                    class="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200">
+                    Logout
+                </button>
+            </form>
+        </div>
     </div>
 
     @php($visible = $this->currentTiles())

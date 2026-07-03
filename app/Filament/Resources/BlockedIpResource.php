@@ -2,20 +2,17 @@
 
 namespace App\Filament\Resources;
 
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
-use Filament\Schemas\Schema;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
+use App\Filament\Resources\BlockedIpResource\Pages\ListBlockedIps;
+use App\Models\BlockedIp;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use App\Filament\Resources\BlockedIpResource\Pages\ListBlockedIps;
-use App\Filament\Resources\BlockedIpResource\Pages;
-use App\Models\BlockedIp;
-use Filament\Forms;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
@@ -23,9 +20,9 @@ class BlockedIpResource extends Resource
 {
     protected static ?string $model = BlockedIp::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-no-symbol';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-no-symbol';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Security Control';
+    protected static string|\UnitEnum|null $navigationGroup = 'Security Control';
 
     protected static ?int $navigationSort = 2;
 
@@ -150,7 +147,7 @@ class BlockedIpResource extends Resource
     // Role access
     public static function canViewAny(): bool
     {
-        return auth()->user()?->hasAnyRole(['super-admin', 'moderator', 'monitoring']) ?? false;
+        return auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false;
     }
 
     public static function canCreate(): bool

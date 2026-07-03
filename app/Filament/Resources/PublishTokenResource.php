@@ -2,23 +2,20 @@
 
 namespace App\Filament\Resources;
 
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\Textarea;
-use Filament\Schemas\Schema;
-use Filament\Tables\Columns\ToggleColumn;
-use Filament\Tables\Columns\TextColumn;
+use App\Filament\Resources\PublishTokenResource\Pages\ListPublishTokens;
+use App\Models\PublishToken;
+use App\Services\MediamtxJwtIssuer;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use App\Filament\Resources\PublishTokenResource\Pages\ListPublishTokens;
-use App\Filament\Resources\PublishTokenResource\Pages;
-use App\Models\PublishToken;
-use App\Services\MediamtxJwtIssuer;
-use Filament\Forms;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 use Livewire\Component as LivewireComponent;
 
@@ -26,7 +23,7 @@ class PublishTokenResource extends Resource
 {
     protected static ?string $model = PublishToken::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-key';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-key';
 
     protected static ?string $navigationLabel = 'Publish Token Generator';
 
@@ -209,7 +206,7 @@ class PublishTokenResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->hasAnyRole(['super-admin', 'moderator', 'monitoring']) ?? false;
+        return auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false;
     }
 
     public static function getPages(): array
