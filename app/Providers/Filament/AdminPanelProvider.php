@@ -8,6 +8,7 @@ use App\Filament\Widgets\DeviceBreakdownChart;
 use App\Filament\Widgets\OsBreakdownChart;
 use App\Filament\Widgets\SessionsOverview;
 use App\Filament\Widgets\TopIpsTable;
+use App\Http\Middleware\EnsureMonitoringUsersUseMonitor;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -70,6 +71,7 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+                EnsureMonitoringUsersUseMonitor::class,
             ])
             ->authMiddleware([
                 Authenticate::class,
