@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\AllowedReferrerResource;
+use App\Filament\Resources\BlockedIpResource;
+use App\Filament\Resources\PublishTokenResource;
 use App\Models\User;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -78,5 +81,14 @@ class MonitoringConfinementTest extends TestCase
         $this->actingAs($this->monitoringUser())
             ->post('/logout')
             ->assertRedirect('/login');
+    }
+
+    public function test_monitoring_user_cannot_view_gated_resources(): void
+    {
+        $this->actingAs($this->monitoringUser());
+
+        $this->assertFalse(PublishTokenResource::canViewAny());
+        $this->assertFalse(AllowedReferrerResource::canViewAny());
+        $this->assertFalse(BlockedIpResource::canViewAny());
     }
 }
