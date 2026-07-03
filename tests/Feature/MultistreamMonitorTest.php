@@ -100,4 +100,16 @@ class MultistreamMonitorTest extends TestCase
             ->assertOk()
             ->assertSee('live/p1');
     }
+
+    public function test_monitor_page_has_logout_control(): void
+    {
+        $this->fakePaths(0);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->withoutVite()
+            ->get('/monitor');
+
+        $response->assertOk();
+        $response->assertSee(route('filament.admin.auth.logout'), escape: false);
+    }
 }
