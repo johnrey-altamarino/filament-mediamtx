@@ -52,6 +52,8 @@ the Filament panel's `->middleware([...])` stack in `AdminPanelProvider`.
 
 Behaviour:
 
+- If the request targets the logout route (`filament.admin.auth.logout`), pass
+  through — otherwise a monitoring user could never sign out.
 - If there is an authenticated user **and** `$user->isMonitoringOnly()`, return
   `redirect()->route('monitor')`.
 - Otherwise pass through (`$next($request)`).
@@ -89,6 +91,14 @@ The middleware already prevents monitoring users from reaching these, but
 removing the grant keeps authorization honest and the sidebar clean if the
 middleware is ever changed.
 
+### 4. Logout control on `/monitor`
+
+Because monitoring-only users are now confined to `/monitor`, that page must
+offer a way to sign out. Add a small **Logout** control to the header of
+`resources/views/livewire/multistream-monitor.blade.php` — an inline `POST` form
+to `route('filament.admin.auth.logout')` with a CSRF token. It sits next to the
+"active" count and is visible to everyone who views `/monitor` (admins included).
+
 ### Unchanged
 
 - `User::canAccessPanel()` still returns `true` for `monitoring`. Filament
@@ -109,6 +119,8 @@ Feature tests (SQLite in-memory, seed the three roles):
 4. A monitoring-only user can successfully load `/monitor` (200, not a
    redirect).
 5. A `moderator` and a `super-admin` can still load the dashboard (no redirect).
+6. A monitoring-only user can POST to the logout route without being redirected
+   to `/monitor` (logout is not trapped).
 
 ## Out of Scope
 
