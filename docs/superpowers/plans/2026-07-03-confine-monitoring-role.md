@@ -134,6 +134,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class MonitoringConfinementTest extends TestCase
@@ -144,6 +145,9 @@ class MonitoringConfinementTest extends TestCase
     {
         parent::setUp();
         $this->seed(RolesSeeder::class);
+        // Rendering /monitor calls the MediaMTX paths API; stub it so the
+        // "can load monitor" test never touches the network.
+        Http::fake(['*/v3/paths/list' => Http::response(['items' => []], 200)]);
     }
 
     private function monitoringUser(): User
@@ -503,6 +507,8 @@ First, open `tests/Feature/MultistreamMonitorTest.php` to match its existing set
 ```php
     public function test_monitor_page_has_logout_control(): void
     {
+        $this->fakePaths(0);
+
         $response = $this->actingAs(User::factory()->create())
             ->withoutVite()
             ->get('/monitor');
@@ -512,7 +518,9 @@ First, open `tests/Feature/MultistreamMonitorTest.php` to match its existing set
     }
 ```
 
-If `User` is not already imported in that file, add `use App\Models\User;` at the top.
+`User`, `Http`, and the `fakePaths()` helper already exist in that file — reuse
+them. `fakePaths(0)` stubs the MediaMTX paths API with an empty list so the GET
+never touches the network.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -567,10 +575,21 @@ git commit -m "feat: add logout control to multistream monitor"
 **Files:**
 - Create: `docs/monitoring-role-confinement.md`
 
-- [ ] **Step 1: Run the full test suite**
+- [ ] **Step 1: Run the new/changed tests per-file**
 
-Run: `composer run test`
-Expected: PASS — all tests green, including the new `UserRolesTest`, `MonitoringConfinementTest`, `MonitoringLoginRedirectTest`, and the updated `MultistreamMonitorTest`.
+Run each new/changed test file in isolation (the full suite has 8 pre-existing
+failures from `RefreshDatabase` state bleed in `ExampleTest`,
+`PlayerAccessMiddlewareTest`, `PlayerControllerTest` — unrelated to this work,
+they pass in isolation):
+
+```bash
+php artisan test tests/Feature/UserRolesTest.php \
+  tests/Feature/MonitoringConfinementTest.php \
+  tests/Feature/MonitoringLoginRedirectTest.php \
+  tests/Feature/MultistreamMonitorTest.php
+```
+
+Expected: PASS — all tests in these four files green.
 
 - [ ] **Step 2: Write the change doc**
 
