@@ -67,4 +67,10 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasRole('super-admin');
     }
+
+    public function isMonitoringOnly(): bool
+    {
+        return $this->hasRole('monitoring')
+            && ! $this->hasAnyRole(['super-admin', 'moderator']);
+    }
 }
