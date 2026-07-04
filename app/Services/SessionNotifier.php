@@ -64,7 +64,7 @@ class SessionNotifier
             $lines[] = "🔗 <b>Referer:</b> {$referer}";
         }
         if ($event->sessionId !== '') {
-            $sessionId = htmlspecialchars($event->sessionId, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $sessionId = htmlspecialchars(mb_substr($event->sessionId, 0, 8), ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $lines[] = "🆔 <b>Session:</b> <code>{$sessionId}</code>";
         }
         $lines[] = "🕒 <i>{$when}</i>";

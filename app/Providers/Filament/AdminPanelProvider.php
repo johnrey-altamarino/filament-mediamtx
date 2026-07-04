@@ -51,10 +51,6 @@ class AdminPanelProvider extends PanelProvider
                 TopIpsTable::class,
             ])
             ->navigationItems([
-                NavigationItem::make('Open Player')
-                    ->url('/play', shouldOpenInNewTab: true)
-                    ->icon('heroicon-o-play')
-                    ->sort(99),
                 NavigationItem::make('Multistream Monitor')
                     ->url(fn (): string => route('monitor'), shouldOpenInNewTab: true)
                     ->icon('heroicon-o-squares-2x2')

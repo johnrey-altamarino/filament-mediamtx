@@ -34,7 +34,7 @@ Telegram alerts.
 - **Read tokens** — short‑lived (default 60 s) JWTs minted on demand for embedded players, gated by IP blocklist and
   referrer allowlist.
 - **Embeddable WebRTC player** at `/play`, protected by an IP whitelist/blacklist and iframe‑embedding rules.
-- **Live session monitoring** — a Sessions page synced on demand from the MediaMTX REST API, with kick / block‑IP actions.
+- **Live session monitoring** — a Sessions page synced on demand from the MediaMTX REST API, with play (publish sessions only), kick, and block‑IP actions.
 - **Analytics dashboard** — OS / browser / device / top‑IP breakdowns aggregated from viewer requests.
 - **Security & activity audit logs** via Spatie Activitylog.
 - **Real‑time Telegram alerts** when a stream or viewer starts/stops, driven by MediaMTX run‑hooks (no polling).

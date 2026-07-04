@@ -41,7 +41,11 @@ class Sessions extends Page implements HasTable
                 TextColumn::make('created')->label('Created')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable()->toggleable(),
                 TextColumn::make('type')->badge()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('state')->badge()->sortable(),
-                TextColumn::make('session_id')->label('Session ID')->searchable(),
+                TextColumn::make('session_id')
+                    ->label('Session ID')
+                    ->formatStateUsing(fn (?string $state) => $state === null ? null : mb_substr($state, 0, 8))
+                    ->tooltip(fn (?string $state) => $state)
+                    ->searchable(),
                 TextColumn::make('path')->searchable(),
                 TextColumn::make('user_agent')
                     ->label('Client')
@@ -54,6 +58,13 @@ class Sessions extends Page implements HasTable
                 TextColumn::make('last_seen_at')->label('Last Seen')->since()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->recordActions([
+                Action::make('play')
+                    ->label('Play')
+                    ->icon('heroicon-o-play')
+                    ->url(fn (MediamtxSession $record) => route('monitor.play', ['stream' => $record->path]))
+                    ->openUrlInNewTab()
+                    ->visible(fn (MediamtxSession $record) => $record->state === 'publish'),
+
                 Action::make('kick')
                     ->label('Kick')
                     ->icon('heroicon-o-hand-raised')
