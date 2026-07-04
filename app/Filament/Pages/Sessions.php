@@ -38,15 +38,14 @@ class Sessions extends Page implements HasTable
             // ✅ THIS FIXES "must have a query()"
             ->query(MediamtxSession::query())
             ->columns([
-                TextColumn::make('created')->label('Created')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable()->toggleable(),
-                TextColumn::make('type')->badge()->sortable()->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('state')->badge()->sortable(),
                 TextColumn::make('session_id')
                     ->label('Session ID')
                     ->formatStateUsing(fn (?string $state) => $state === null ? null : mb_substr($state, 0, 8))
                     ->tooltip(fn (?string $state) => $state)
                     ->searchable(),
                 TextColumn::make('path')->searchable(),
+                TextColumn::make('type')->badge()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('state')->badge()->sortable(),
                 TextColumn::make('user_agent')
                     ->label('Client')
                     ->badge()
@@ -55,6 +54,7 @@ class Sessions extends Page implements HasTable
                     ->searchable()
                     ->toggleable(),
                 TextColumn::make('ip')->label('IP')->searchable(),
+                TextColumn::make('created')->label('Created')->dateTime('M d, Y h:i:s A')->timezone('Asia/Manila')->sortable()->toggleable(),
                 TextColumn::make('last_seen_at')->label('Last Seen')->since()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->recordActions([
