@@ -23,7 +23,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach ($visible as $tile)
                 <div wire:key="tile-{{ $tile['name'] }}"
-                     x-data="{ expanded: false, copied: false }"
+                     x-data="{ expanded: false, copied: false, muted: true }"
                      :class="expanded
                         ? 'fixed inset-0 z-50 rounded-none border-0'
                         : 'relative rounded-lg border border-neutral-800'"
@@ -38,7 +38,7 @@
                     </button>
 
                     <div class="bg-black" :class="expanded ? 'flex-1' : 'aspect-video'" wire:ignore>
-                        <iframe
+                        <iframe x-ref="frame"
                             src="{{ route('monitor.play', ['stream' => $tile['name'], 'muted' => 'true', 'controls' => 'false', 'autoplay' => 'true']) }}"
                             class="w-full h-full border-0"
                             allow="autoplay"></iframe>
@@ -59,6 +59,20 @@
                             </svg>
                             <svg x-show="copied" x-cloak xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                            </svg>
+                        </button>
+
+                        {{-- Mute / unmute the tile's audio (toggles the same-origin iframe's <video>) --}}
+                        <button type="button" :title="muted ? 'Unmute' : 'Mute'"
+                            @click="muted = !muted; try { $refs.frame.contentWindow.document.getElementById('myvideo').muted = muted } catch (e) {}"
+                            class="shrink-0 p-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200">
+                            {{-- Muted (speaker with X) --}}
+                            <svg x-show="muted" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l4-4m0 4l-4-4M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                            </svg>
+                            {{-- Unmuted (speaker with waves) --}}
+                            <svg x-show="!muted" x-cloak xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
                             </svg>
                         </button>
 
