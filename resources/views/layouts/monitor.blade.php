@@ -9,12 +9,40 @@
     @livewireStyles
     <style>
         html, body { margin: 0; padding: 0; min-height: 100%; background: #0a0a0a; }
+        [x-cloak] { display: none !important; }
     </style>
 </head>
 <body>
     {{ $slot }}
     @livewireScripts
     <script>
+        // Copy helper that also works over plain HTTP. navigator.clipboard is only
+        // available in a secure context (HTTPS or localhost); on http:// it is
+        // undefined and writeText() throws. Fall back to a hidden <textarea> +
+        // execCommand('copy'). Returns a Promise<boolean> indicating success.
+        window.monitorCopy = async function (text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                }
+            } catch (e) { /* fall through to legacy path */ }
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.top = '-9999px';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+                return ok;
+            } catch (e) { return false; }
+        };
+
         // Make the 12s wire:poll resilient. When a poll's POST /livewire/update
         // hits a transient origin/edge failure (Cloudflare 520/522, a 5xx, or a
         // dropped connection), Livewire's default is to render the error response
