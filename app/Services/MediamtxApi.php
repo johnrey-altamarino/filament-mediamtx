@@ -85,22 +85,19 @@ class MediamtxApi
     }
 
     /**
-     * Resolve the real client IP for a WebRTC session.
+     * Resolve the client IP for a WebRTC session.
      *
-     * Prefer the ICE remote candidate: the media (UDP) path connects directly to the
-     * origin, bypassing any HTTP proxy (Cloudflare/Apache) that fronts the WHEP
-     * signaling, so the candidate carries the viewer's true address — typically IPv4,
-     * even when `remoteAddr` (the signaling peer) is a proxy/IPv6 address. The
-     * candidate is only populated once the peer connection is established; until then
-     * fall back to `remoteAddr`.
+     * Prefer `remoteAddr` (the signaling peer), falling back to the ICE remote
+     * candidate when `remoteAddr` yields no usable IP — e.g. before the WHEP
+     * signaling address is populated.
      */
     public static function clientIp(array $session): string
     {
-        $candidate = self::ipFromCandidate((string) data_get($session, 'remoteCandidate', ''));
+        $addr = self::ipFromRemoteAddr((string) data_get($session, 'remoteAddr', ''));
 
-        return $candidate !== ''
-            ? $candidate
-            : self::ipFromRemoteAddr((string) data_get($session, 'remoteAddr', ''));
+        return $addr !== ''
+            ? $addr
+            : self::ipFromCandidate((string) data_get($session, 'remoteCandidate', ''));
     }
 
     /**

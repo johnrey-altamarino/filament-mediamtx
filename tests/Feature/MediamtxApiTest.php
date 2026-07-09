@@ -26,29 +26,27 @@ class MediamtxApiTest extends TestCase
         $this->assertSame('', MediamtxApi::ipFromCandidate('prflx/udp/not-an-ip/10119'));
     }
 
-    public function test_client_ip_prefers_remote_candidate_over_remote_addr(): void
+    public function test_client_ip_prefers_remote_addr_over_remote_candidate(): void
     {
-        // Media path (UDP) sees the real IPv4 even when signaling arrived over IPv6/proxy.
-        $this->assertSame('49.146.39.58', MediamtxApi::clientIp([
+        // remoteAddr (signaling peer) is preferred when present.
+        $this->assertSame('2001:db8::1', MediamtxApi::clientIp([
             'remoteAddr' => '[2001:db8::1]:443',
             'remoteCandidate' => 'prflx/udp/49.146.39.58/10119',
         ]));
 
-        // No candidate yet (ICE not established) → fall back to remoteAddr.
         $this->assertSame('1.2.3.4', MediamtxApi::clientIp([
             'remoteAddr' => '1.2.3.4:5555',
         ]));
 
-        // Unparseable candidate → fall back to remoteAddr.
-        $this->assertSame('1.2.3.4', MediamtxApi::clientIp([
-            'remoteAddr' => '1.2.3.4:5555',
-            'remoteCandidate' => 'garbage',
+        // No remoteAddr yet → fall back to the ICE remote candidate.
+        $this->assertSame('49.146.39.58', MediamtxApi::clientIp([
+            'remoteCandidate' => 'prflx/udp/49.146.39.58/10119',
         ]));
 
         $this->assertSame('', MediamtxApi::clientIp([]));
     }
 
-    public function test_find_session_uses_remote_candidate_ip(): void
+    public function test_find_session_uses_remote_addr_ip(): void
     {
         Http::fake(['*/v3/webrtcsessions/list' => Http::response(['items' => [
             ['id' => 'a', 'remoteAddr' => '[2001:db8::1]:443',
@@ -56,7 +54,7 @@ class MediamtxApiTest extends TestCase
         ]], 200)]);
 
         $this->assertSame(
-            ['ip' => '49.146.39.58', 'userAgent' => 'Chrome'],
+            ['ip' => '2001:db8::1', 'userAgent' => 'Chrome'],
             app(MediamtxApi::class)->findSession('a')
         );
     }
