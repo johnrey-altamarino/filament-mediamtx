@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Jobs\SendTelegramMessage;
+use App\Support\TelegramAlert;
 use App\Support\UserAgentLabel;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -38,13 +39,13 @@ class SessionNotifier
 
         // Escape operator-controlled fields: the message is sent with parse_mode=HTML,
         // so an unescaped < > & in the path/ip would make Telegram reject it (HTTP 400).
-        $path = htmlspecialchars($event->path, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $ip = $event->ip !== '' ? htmlspecialchars($event->ip, ENT_QUOTES | ENT_HTML5, 'UTF-8') : 'unknown';
+        $path = TelegramAlert::esc($event->path);
+        $ip = $event->ip !== '' ? TelegramAlert::esc($event->ip) : 'unknown';
         $protocol = $this->protocolLabel($event->type);
-        $referer = $event->referer !== '' ? htmlspecialchars($event->referer, ENT_QUOTES | ENT_HTML5, 'UTF-8') : '';
+        $referer = $event->referer !== '' ? TelegramAlert::esc($event->referer) : '';
         // Parse the raw UA to a short label (e.g. "OBS Studio") before escaping.
         $client = $event->userAgent !== ''
-            ? htmlspecialchars(UserAgentLabel::format($event->userAgent), ENT_QUOTES | ENT_HTML5, 'UTF-8')
+            ? TelegramAlert::esc(UserAgentLabel::format($event->userAgent))
             : '';
         $when = Carbon::parse($event->occurredAt)->timezone('Asia/Manila')->format('M d, Y h:i:s A');
 
@@ -64,7 +65,7 @@ class SessionNotifier
             $lines[] = "🔗 <b>Referer:</b> {$referer}";
         }
         if ($event->sessionId !== '') {
-            $sessionId = htmlspecialchars(mb_substr($event->sessionId, 0, 8), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $sessionId = TelegramAlert::esc(mb_substr($event->sessionId, 0, 8));
             $lines[] = "🆔 <b>Session:</b> <code>{$sessionId}</code>";
         }
         $lines[] = "🕒 <i>{$when}</i>";
