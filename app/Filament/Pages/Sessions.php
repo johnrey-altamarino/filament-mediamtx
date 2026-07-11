@@ -70,7 +70,7 @@ class Sessions extends Page implements HasTable
                     ->icon('heroicon-o-hand-raised')
                     ->requiresConfirmation()
                     ->action(function (MediamtxSession $record) {
-                        app(MediamtxApi::class)->kickWebRtc($record->session_id);
+                        app(MediamtxApi::class)->kick($record->type, $record->session_id);
 
                         activity('security')
                             ->causedBy(auth()->user())
@@ -84,7 +84,8 @@ class Sessions extends Page implements HasTable
 
                         Notification::make()->title('Session kicked')->success()->send();
                     })
-                    ->visible(fn () => auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false),
+                    ->visible(fn (MediamtxSession $record) => $record->type !== 'hls'
+                        && (auth()->user()?->hasAnyRole(['super-admin', 'moderator']) ?? false)),
 
                 Action::make('block_ip')
                     ->label('Block IP')
