@@ -47,8 +47,8 @@ Mental model: **same shape as the existing WebRTC UDP media path.** Requirements
 
 1. Public IP reachable (already true — WebRTC ICE uses it).
 2. UDP port (default 8892) forwarded to the MediaMTX host.
-3. DNS-only (grey-cloud) record `moq.jrta.online` → public IP.
-4. **New vs. WebRTC:** a valid TLS cert for `moq.jrta.online` loaded *into MediaMTX* (WebRTC needs
+3. DNS-only (grey-cloud) record `origin.jrta.online` → public IP.
+4. **New vs. WebRTC:** a valid TLS cert for `origin.jrta.online` loaded *into MediaMTX* (WebRTC needs
    no domain cert; WebTransport validates the cert against the hostname, so the URL must use the
    hostname, not a bare IP).
 
@@ -56,7 +56,7 @@ Only **UDP** needs forwarding — not TCP. The page is served by the Laravel app
 reader is forked to drop the `/fingerprint` fetch (see Section 4), so nothing hits MediaMTX's
 TCP/HTTP2 MoQ listener.
 
-**Trust-model note:** this UDP path exposes the origin public IP for `moq.jrta.online` (no
+**Trust-model note:** this UDP path exposes the origin public IP for `origin.jrta.online` (no
 Cloudflare proxy in front, since CF can't proxy WebTransport). Accepted. Only UDP 8892 is open
 there; the app + WHEP stay behind Cloudflare.
 
@@ -71,8 +71,8 @@ configured for WHEP (`authMethod: jwt` + `authJWTJWKS` → `/.well-known/jwks.js
 moq: yes
 moqHTTP2Address: :8892          # TCP/HTTP2 — page + /fingerprint (unused by our page; keep default)
 moqHTTP3Address: :8892          # UDP/HTTP3 — WebTransport media endpoint (this is what we expose)
-moqServerCert: /etc/letsencrypt/live/moq.jrta.online/fullchain.pem
-moqServerKey:  /etc/letsencrypt/live/moq.jrta.online/privkey.pem
+moqServerCert: /etc/letsencrypt/live/origin.jrta.online/fullchain.pem
+moqServerKey:  /etc/letsencrypt/live/origin.jrta.online/privkey.pem
 moqAllowOrigins: ["https://<app-origin>"]   # lock to the app origin that serves /moq
 moqTrustedProxies: []
 ```
@@ -84,13 +84,13 @@ moqTrustedProxies: []
 
 ### TLS cert (certbot)
 
-- Issue `moq.jrta.online` via certbot (DNS-01 through Cloudflare, since the record is DNS-only).
+- Issue `origin.jrta.online` via certbot (DNS-01 through Cloudflare, since the record is DNS-only).
 - `--deploy-hook` reloads MediaMTX on renewal so the QUIC listener picks up the rotated cert.
 - MediaMTX must have read access to the cert files (permissions/ownership on the deploy host).
 
 ### Infra checklist (server-side, outside this repo)
 
-- [ ] DNS-only `moq.jrta.online` → public IP.
+- [ ] DNS-only `origin.jrta.online` → public IP.
 - [ ] UDP 8892 forwarded through the 5G CPE NAT to the MediaMTX host.
 - [ ] certbot cert issued + deploy-hook reload wired.
 - [ ] `moq: yes` and the cert paths set in `mediamtx.yml`; MediaMTX restarted.
@@ -143,7 +143,7 @@ Add to `.env.example`:
 
 ```
 # Media-over-QUIC (MoQ) WebTransport endpoint (hostname + UDP port; must use hostname for TLS)
-MEDIAMTX_MOQ_BASE_URL=https://moq.jrta.online:8892
+MEDIAMTX_MOQ_BASE_URL=https://origin.jrta.online:8892
 ```
 
 ---
@@ -272,7 +272,7 @@ The spike's results feed back into Sections 4–6 before the rest is built.
 
 ### Manual E2E (once infra is up)
 
-- Publish via WHIP → open `/moq?stream=<path>` on `moq.jrta.online` in a supported browser →
+- Publish via WHIP → open `/moq?stream=<path>` on `origin.jrta.online` in a supported browser →
   confirm playback, audio unmute, reconnect, and compare latency vs WHEP.
 - Confirm the unsupported-browser guard shows the WHEP fallback (e.g. old Safari).
 

@@ -13,8 +13,8 @@
 - Read JWT is unchanged: `mediamtx_permissions: [{action: read, path}]`, RS256, verified by MediaMTX via JWKS. **No changes to `/api/read` or `MediamtxJwtIssuer`.**
 - WHIP ingest, WHEP `/play`, and the multistream monitor are **untouched**.
 - The `/moq` page reuses the existing `player.access` IP-gate middleware and the `allow_direct_playback` / embed rules from `PlayerController` verbatim.
-- MoQ media is exposed over **UDP only** (default port 8892), direct to the public IP via a DNS-only `moq.jrta.online` record. The cert lives **inside MediaMTX** (`moqServerCert`/`moqServerKey`), never in Apache.
-- The connection URL uses the **hostname** (`https://moq.jrta.online:8892/...`), never a bare IP (TLS validates against the hostname).
+- MoQ media is exposed over **UDP only** (default port 8892), direct to the public IP via a DNS-only `origin.jrta.online` record. The cert lives **inside MediaMTX** (`moqServerCert`/`moqServerKey`), never in Apache.
+- The connection URL uses the **hostname** (`https://origin.jrta.online:8892/...`), never a bare IP (TLS validates against the hostname).
 - Vendored reader stays as close to upstream `MediaMTXMoQReader` as possible — only the three edits in Task 3 are permitted, so future upstream syncs stay cheap.
 - Tests that hit `/moq` use `RefreshDatabase` + `withoutVite()` (follow `MonitorPlayerControllerTest`, not the isolation-broken `PlayerControllerTest`).
 - Spec: `docs/superpowers/specs/2026-07-10-moq-player-design.md`.
@@ -86,6 +86,28 @@ git commit -m "docs: record MoQ spike findings"
 
 **If the spike fails** (e.g. MOQT version mismatch with no compatible reader, or auth can't be passed): stop and revise the spec before continuing. Do not proceed to Task 2.
 
+### Spike Findings (2026-07-10, against PROD)
+
+Spike run against the live prod MediaMTX (not localhost), per user decision.
+
+**Confirmed:**
+- **Host/endpoint:** `origin.jrta.online:8892` → public IP `122.2.44.19` (not `moq.jrta.online`; corrected throughout).
+- **MediaMTX v1.19.1**; MoQ log: `started with listeners on :8892 (TCP/HTTP2), :8892 (UDP/HTTP3)`.
+- **Stream** `testcg1` ready, tracks `Opus` + `H264` (WebCodecs-decodable). ✅
+- **Cert:** replaced MediaMTX's self-signed 10-year `auto.crt` (which browsers reject remotely — untrusted for plain connect, and >14 days so `serverCertificateHashes` pinning is also refused) with a **Let's Encrypt** cert for `origin.jrta.online` (via `certbot --standalone` with apache stop/start hooks; port 80 was Apache's). This **confirms the no-pinning fork is required**, not optional.
+- **Transport reaches MediaMTX:** `tcpdump` showed a real bidirectional QUIC handshake (client Initial 1250B in, server reply 1280B out). Server-side (listener, ufw `8892/udp`, CPE UDP forward) all healthy.
+- **`#MOQT_VERSION = "moqt-18"`** matches v1.19.1 (handshake began with no version error).
+
+**NOT confirmed (blocked by client-network QUIC issue; validate on deploy):**
+- **Handshake did not complete** from the test Mac: server replies weren't reaching the client (client kept retransmitting its Initial, new port every ~2s). Root cause is a **client-side network path** (office Wi-Fi almost certainly filtering inbound QUIC on a non-443 port; possibly 5G-uplink MTU on the 1280B reply) — **not** the app code, cert, or server. A hotspot re-test was offered; user opted to proceed and validate post-deploy.
+- Because the handshake never completed, these remain **best-guess, to confirm on deploy** (each a one-line change):
+  1. **WebTransport URL path shape** — building with `${MEDIAMTX_MOQ_BASE_URL}/${stream}/moq`.
+  2. **JWT-over-MoQ auth** — building as designed (`token` → `Bearer` in the MoQ AUTH_TOKEN param).
+
+**Consequences for the build:**
+- Reader already forked at `resources/js/moq-reader.js` (dropped `serverCertificateHashes` + fingerprint fetch, added `tokenProvider`) — Task 3's edits are done; Task 3 remaining = Vite wiring + commit.
+- `moqAllowOrigins` currently `["*"]` on prod for the spike — lock to the app origin at deploy.
+
 ---
 
 ## Task 2: Config, Controller & Route
@@ -115,7 +137,7 @@ In `.env.example`, near `MEDIAMTX_STREAM_BASE_URL=`, add:
 
 ```
 # Media-over-QUIC (MoQ) WebTransport endpoint (hostname + UDP port; must use hostname for TLS)
-MEDIAMTX_MOQ_BASE_URL=https://moq.jrta.online:8892
+MEDIAMTX_MOQ_BASE_URL=https://origin.jrta.online:8892
 ```
 
 - [ ] **Step 3: Write the failing controller tests**
@@ -580,15 +602,15 @@ Create `docs/moq-player.md` covering, concretely:
   moq: yes
   moqHTTP2Address: :8892
   moqHTTP3Address: :8892
-  moqServerCert: /etc/letsencrypt/live/moq.jrta.online/fullchain.pem
-  moqServerKey:  /etc/letsencrypt/live/moq.jrta.online/privkey.pem
+  moqServerCert: /etc/letsencrypt/live/origin.jrta.online/fullchain.pem
+  moqServerKey:  /etc/letsencrypt/live/origin.jrta.online/privkey.pem
   moqAllowOrigins: ["https://<app-origin>"]
   moqTrustedProxies: []
   ```
 
-- **Cert (certbot, DNS-01 via Cloudflare)** — issue for `moq.jrta.online`; add a `--deploy-hook` that reloads MediaMTX so the QUIC listener picks up the renewed cert; ensure MediaMTX can read the cert files.
-- **DNS + NAT** — DNS-only (grey-cloud) `moq.jrta.online` → public IP; forward **UDP 8892** through the CPE to the MediaMTX host. Note the origin-IP exposure trade-off (WebTransport can't be Cloudflare-proxied).
-- **App env** — set `MEDIAMTX_MOQ_BASE_URL=https://moq.jrta.online:8892`.
+- **Cert (certbot, DNS-01 via Cloudflare)** — issue for `origin.jrta.online`; add a `--deploy-hook` that reloads MediaMTX so the QUIC listener picks up the renewed cert; ensure MediaMTX can read the cert files.
+- **DNS + NAT** — DNS-only (grey-cloud) `origin.jrta.online` → public IP; forward **UDP 8892** through the CPE to the MediaMTX host. Note the origin-IP exposure trade-off (WebTransport can't be Cloudflare-proxied).
+- **App env** — set `MEDIAMTX_MOQ_BASE_URL=https://origin.jrta.online:8892`.
 - **Why UDP-only / not reverse-proxied** — WebTransport = HTTP/3/QUIC; Apache/Nginx/Cloudflare can't proxy it.
 - **Verify** — publish via WHIP, open `/moq?stream=<path>` in Chrome, confirm playback + unmute + reconnect; confirm the unsupported-browser fallback.
 
