@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\MediamtxSession;
+use Illuminate\Support\Facades\Log;
 
 class MediamtxSessionRefresher
 {
@@ -12,29 +13,46 @@ class MediamtxSessionRefresher
     {
         $now = now();
 
-        $items = data_get($this->api->listWebRtcSessions(), 'items', []);
+        $sources = [
+            'webrtc' => fn () => $this->api->listWebRtcSessions(),
+            'moq' => fn () => $this->api->listMoqSessions(),
+            'rtmp' => fn () => $this->api->listRtmpConns(),
+            'rtsp' => fn () => $this->api->listRtspSessions(),
+            'srt' => fn () => $this->api->listSrtConns(),
+        ];
 
-        $rows = collect($items)->map(function ($it) {
-            $remote = (string) data_get($it, 'remoteAddr', '');
+        foreach ($sources as $type => $fetch) {
+            try {
+                $items = data_get($fetch(), 'items', []);
+            } catch (\Throwable $e) {
+                // One protocol being unreachable must not blank the whole page.
+                Log::warning('Session snapshot fetch failed', [
+                    'type' => $type, 'error' => $e->getMessage(),
+                ]);
 
-            return [
-                'type' => 'webrtc',
-                'session_id' => (string) data_get($it, 'id', ''),
-                'state' => (string) data_get($it, 'state', ''),
-                'path' => (string) data_get($it, 'path', ''),
-                'query' => (string) data_get($it, 'query', ''),
-                'remote_addr' => $remote,
-                'ip' => MediamtxApi::clientIp($it),
-                'created' => (string) data_get($it, 'created', ''),
-                'user_agent' => (string) data_get($it, 'userAgent', '') ?: null,
-            ];
-        })->filter(fn ($r) => $r['session_id'] !== '')->values();
+                continue;
+            }
 
-        foreach ($rows as $row) {
-            MediamtxSession::updateOrCreate(
-                ['type' => $row['type'], 'session_id' => $row['session_id']],
-                $row + ['last_seen_at' => $now],
-            );
+            foreach ($items as $it) {
+                $sessionId = (string) data_get($it, 'id', '');
+                if ($sessionId === '') {
+                    continue;
+                }
+
+                MediamtxSession::updateOrCreate(
+                    ['type' => $type, 'session_id' => $sessionId],
+                    [
+                        'state' => (string) data_get($it, 'state', ''),
+                        'path' => (string) data_get($it, 'path', ''),
+                        'query' => (string) data_get($it, 'query', ''),
+                        'remote_addr' => (string) data_get($it, 'remoteAddr', ''),
+                        'ip' => MediamtxApi::clientIp($it),
+                        'created' => (string) data_get($it, 'created', ''),
+                        'user_agent' => (string) data_get($it, 'userAgent', '') ?: null,
+                        'last_seen_at' => $now,
+                    ],
+                );
+            }
         }
 
         $stale = (int) config('services.mediamtx.stale_seconds', 20);
