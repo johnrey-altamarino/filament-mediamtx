@@ -13,7 +13,7 @@ additive and opt-in.
 | Transport | WebRTC (HTTPS signaling + UDP media) | WebTransport — a single QUIC/**UDP** connection |
 | JWT delivery | `Authorization: Bearer` on WHEP HTTP | MoQ AUTH_TOKEN param inside SUBSCRIBE (WebTransport can't set headers) |
 | Media path | behind Apache/Cloudflare | **direct UDP to MediaMTX** (not proxyable) |
-| Cert | none (DTLS fingerprints) | real TLS cert for the hostname, loaded **into MediaMTX** |
+| Cert | none (DTLS fingerprints) | HTTP/3 listener serves its **own self-signed cert, pinned via `serverCertificateHashes`** (fingerprint from `/fingerprint`). The LE cert on the HTTP/2 listener only secures the `/fingerprint` fetch. |
 | Browser | broad | Chrome/Edge 110+, Firefox 130+, Safari 26.4+ |
 
 The `/moq` **page** and `/api/read` still sit behind Apache/Cloudflare, exactly as today. Only the
@@ -51,27 +51,41 @@ moqTrustedProxies: []
 Reuse the existing JWT/JWKS auth (`authMethod: jwt` + `authJWTJWKS` → `/.well-known/jwks.json`) —
 **no new auth** and **no `/api/read` change**; the same read JWT authorizes WHEP and MoQ.
 
-### 2. A real TLS cert is mandatory (not `auto.crt`)
+### 2. How MoQ TLS actually works here (important)
 
-MediaMTX's default self-signed `auto.crt` (CN=mediamtx, 10-year) **does not work in browsers from a
-remote host**: it's untrusted for a plain WebTransport connect, and its 10-year validity exceeds the
-14-day cap browsers impose on `serverCertificateHashes` pinning — so *both* browser paths reject it.
-(It only "works" on `localhost`, which browsers exempt.) Use Let's Encrypt:
+MediaMTX runs **two** TLS listeners on 8892, and they use **different** certs:
+
+- **HTTP/3 (UDP) — the WebTransport media.** MediaMTX serves its **own self-signed cert** here and
+  ignores `moqServerCert` for it. The browser does **not** do CA validation; instead the reader
+  **pins** this cert via `serverCertificateHashes`, using the SHA-256 hex published at the
+  **`/fingerprint`** endpoint. (This is why a "trusted LE cert on the QUIC listener" approach fails
+  with `CERTIFICATE_VERIFY_FAILED` — the LE cert is never presented over QUIC.)
+- **HTTP/2 (TCP) — the page + `/fingerprint`.** This *does* use `moqServerCert`. It must carry a
+  **real, publicly-trusted cert** so the player page (served from a different origin) can fetch
+  `/fingerprint` cross-origin over HTTPS without a cert error.
+
+So the Let's Encrypt cert is still required — but its job is to secure the **`/fingerprint` fetch on
+the HTTP/2 listener**, not the QUIC media. Confirm the split with:
 
 ```bash
-# Apache owns port 80, so --standalone must stop/start it briefly (also handled on renewal).
+# HTTP/2 (TCP) presents the LE cert:
+echo | openssl s_client -connect origin.jrta.online:8892 -servername origin.jrta.online 2>/dev/null \
+  | openssl x509 -noout -issuer -dates          # issuer = Let's Encrypt
+# The HTTP/3 cert MediaMTX advertises for pinning is a DIFFERENT (self-signed) cert:
+curl -sk https://origin.jrta.online:8892/fingerprint; echo   # != the LE cert's SHA-256
+```
+
+Issue the LE cert (Apache owns port 80, so `--standalone` stops/starts it briefly):
+
+```bash
 sudo certbot certonly --standalone -d origin.jrta.online \
   --pre-hook  'systemctl stop apache2' \
   --post-hook 'systemctl start apache2' \
-  --deploy-hook 'systemctl reload mediamtx'
+  --deploy-hook 'systemctl restart mediamtx'
 ```
-(DNS-01 via the Cloudflare plugin is an alternative with zero downtime if you have a CF API token.)
-The `--deploy-hook` reloads MediaMTX so the QUIC listener picks up the renewed cert. Verify:
-
-```bash
-echo | openssl s_client -connect origin.jrta.online:8892 -servername origin.jrta.online 2>/dev/null \
-  | openssl x509 -noout -issuer -dates      # issuer must be Let's Encrypt, ~90-day expiry
-```
+(DNS-01 via the Cloudflare plugin is a zero-downtime alternative.) Use **`restart`**, not `reload`,
+in the deploy-hook — MediaMTX's HTTP/3 stack loads its TLS at process start and won't refresh on a
+reload.
 
 ### 3. Network exposure (like WebRTC's UDP media)
 
@@ -116,8 +130,16 @@ middleware and the `allow_direct_playback` toggle — same as `/play`. Open `/mo
     reaching the client. Usually the **client network** (corporate Wi-Fi filtering QUIC on non-443
     ports) or a **5G-uplink MTU** blackholing the ~1280-byte server reply. Test from a different
     network (phone hotspot). This is inherent to WebTransport; affected viewers should use `/play`.
-- **Immediate cert error** — MediaMTX is serving `auto.crt`, or the cert isn't for `origin.jrta.online`,
-  or MediaMTX wasn't restarted after the cert change. Re-run the `openssl` check above.
+- **`net::ERR_QUIC_PROTOCOL_ERROR ... CERTIFICATE_VERIFY_FAILED` over WebTransport, but `openssl`/
+  plain HTTPS to `:8892` is trusted** — this is expected if the reader is *not* pinning: MediaMTX's
+  HTTP/3 cert is self-signed, so CA validation must be bypassed via `serverCertificateHashes`. Ensure
+  `moq-reader.js` still does the `/fingerprint` fetch + pinning (it does; don't remove it). Verify the
+  HTTP/3 cert is the pinned one: `curl -sk https://origin.jrta.online:8892/fingerprint` returns a hash
+  that is **not** your LE cert's SHA-256 (they're intentionally different certs).
+- **`ERR_CERT_VALIDITY_TOO_LONG` over WebTransport** — the pinned self-signed cert is >14 days;
+  `serverCertificateHashes` caps at 14. This would be a MediaMTX-side cert-generation issue.
+- **`/fingerprint` fetch fails (CORS/opaque)** — the HTTP/2 listener needs a publicly-trusted cert
+  (the LE cert) *and* `moqAllowOrigins` must include the app origin (or `*`).
 - **"Access denied (403/401)" shown, player stops** — `/api/read` refused to issue a token: the
   viewer's IP is on `blocked_ips`, the `Referer` isn't allow-listed, or `allow_direct_playback` is
   off for a non-embedded load. This is a *terminal* state by design (the page no longer retries).
@@ -141,9 +163,12 @@ Everything else (the `player.access` IP gate, `allow_direct_playback`, iframe/em
 ## Reader fork & player hardening
 
 `resources/js/moq-reader.js` is MediaMTX's own `MediaMTXMoQReader` (v1.19.1, `moqt-18`) vendored with
-a small, documented set of fork edits (listed in the file header). Beyond the cert simplifications
-(no `serverCertificateHashes`/fingerprint, trusted LE cert), a code review drove these robustness
-additions:
+a small, documented set of fork edits (listed in the file header). The **cert-pinning path
+(`serverCertificateHashes` + `/fingerprint`) is kept from upstream** — it's required, because
+MediaMTX serves a self-signed cert over HTTP/3 (see "How MoQ TLS actually works here"). An early
+fork that removed pinning for a "trusted cert" was wrong and has been reverted. The `/fingerprint`
+fetch was changed to a no-auth cross-origin GET. On top of that, a code review drove these
+robustness additions:
 
 - **`stop()` (new public method)** — upstream only auto-retries and has no stop path. The player
   calls `reader.stop()` on `pagehide`/`beforeunload` so the WebTransport connection and the ~2s

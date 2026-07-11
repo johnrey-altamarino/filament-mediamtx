@@ -198,6 +198,10 @@ function startPlayer() {
   reader = new MediaMTXMoQReader({
     // NOTE: exact MoQ URL/path shape confirmed on deploy; default is <base>/<stream>/moq.
     url: `${MOQ_BASE_URL}/${stream}/moq`,
+    // MediaMTX's HTTP/3 listener serves a self-signed cert that the reader pins via
+    // serverCertificateHashes; its fingerprint is published here (served over the trusted
+    // LE cert on the HTTP/2 listener, so this cross-origin fetch validates).
+    fingerprintUrl: `${MOQ_BASE_URL}/fingerprint`,
     tokenProvider: fetchToken,
     videoElement: videoEl,
     onError: (msg, terminal) => {

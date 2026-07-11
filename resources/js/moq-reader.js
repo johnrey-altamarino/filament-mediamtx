@@ -3,15 +3,17 @@
 // Vendored from MediaMTX (bluenviron/mediamtx) v1.19.1 — MoQ browser reader
 // (MediaMTXMoQReader, MOQT version moqt-18).
 // Forked edits (this repo), kept minimal for cheap upstream re-sync:
-//   1. #connect(): dropped serverCertificateHashes (we serve a real trusted LE cert;
-//      pinning is capped at 14-day certs, ours is 90).
-//   2. #start(): dropped the #fetchFingerprint() step (only needed for self-signed),
-//      added an optional async `tokenProvider` refresh hook (see @typedef Conf), and
-//      routed terminal errors (err.terminal === true) to stop() instead of retrying.
-//   3. stop(): new public method to permanently tear down (timer + WebTransport +
+//   1. #start(): added an optional async `tokenProvider` refresh hook (see @typedef Conf)
+//      run after the fingerprint fetch so reconnects after the short JWT TTL re-authorize,
+//      and routed terminal errors (err.terminal === true) to stop() instead of retrying.
+//   2. stop(): new public method to permanently tear down (timer + WebTransport +
 //      decoders) — upstream only auto-retries and has no stop path.
-//   4. onError callback now receives a second `terminal` boolean arg.
-// #fetchFingerprint()/#authHeader()/#fingerprint remain defined but unused.
+//   3. onError callback now receives a second `terminal` boolean arg.
+//   4. #fetchFingerprint(): fetch /fingerprint with no auth header (public, cross-origin
+//      CORS-simple GET). The serverCertificateHashes pinning path is UPSTREAM behavior and
+//      is REQUIRED: MediaMTX's HTTP/3 listener serves its own self-signed cert (ignoring
+//      moqServerCert), advertised via /fingerprint — an earlier fork that dropped pinning
+//      for a "trusted cert" was wrong and has been reverted.
 
 /**
  * @callback OnError
@@ -162,11 +164,16 @@ class MediaMTXMoQReader {
   }
 
   #start() {
-    // FORK: no fingerprint fetch (trusted cert). Refresh the token first when a
-    // tokenProvider is supplied, so reconnects after the short JWT TTL still authorize.
-    Promise.resolve(
-      this.#conf.tokenProvider ? this.#conf.tokenProvider() : this.#conf.token,
-    )
+    // FORK: fetch the WebTransport cert fingerprint first (MediaMTX's HTTP/3 listener
+    // serves a self-signed cert that must be pinned via serverCertificateHashes), then
+    // refresh the token when a tokenProvider is supplied so reconnects after the short
+    // JWT TTL still authorize, then connect.
+    this.#fetchFingerprint()
+      .then(() =>
+        Promise.resolve(
+          this.#conf.tokenProvider ? this.#conf.tokenProvider() : this.#conf.token,
+        ),
+      )
       .then((token) => {
         if (this.#conf.tokenProvider) this.#conf.token = token;
       })
@@ -257,9 +264,10 @@ class MediaMTXMoQReader {
   }
 
   async #fetchFingerprint() {
-    const hex = await fetch(this.#conf.fingerprintUrl, {
-      headers: this.#authHeader(),
-    }).then((r) => r.text());
+    // FORK: /fingerprint is public and served cross-origin (from the app page's origin to
+    // the MoQ host); fetch it as a plain GET with no auth header, so it stays a CORS-simple
+    // request (no preflight) — MediaMTX answers with the moqAllowOrigins CORS header.
+    const hex = await fetch(this.#conf.fingerprintUrl).then((r) => r.text());
     this.#fingerprint = new Uint8Array(hex.length / 2);
     for (let i = 0; i < this.#fingerprint.length; i++)
       this.#fingerprint[i] = parseInt(hex.slice(2 * i, 2 * i + 2), 16);
@@ -304,9 +312,10 @@ class MediaMTXMoQReader {
   }
 
   async #connect() {
-    // FORK: connect with a real trusted (Let's Encrypt) cert — no serverCertificateHashes
-    // pinning (browsers cap pinned certs at 14 days; our LE cert is 90). See header note.
     this.#wt = new WebTransport(this.#conf.url, {
+      serverCertificateHashes: [
+        { algorithm: "sha-256", value: this.#fingerprint.buffer },
+      ],
       protocols: [MediaMTXMoQReader.#MOQT_VERSION],
     });
     await this.#wt.ready;
