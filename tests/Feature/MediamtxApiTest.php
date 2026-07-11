@@ -148,4 +148,15 @@ class MediamtxApiTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         app(MediamtxApi::class)->kick('hls', 'x1');
     }
+
+    public function test_find_session_enriches_moq_by_type(): void
+    {
+        Http::fake(['*/v3/moqsessions/list' => Http::response(['items' => [
+            ['id' => 'm-1', 'remoteAddr' => '5.6.7.8:1111', 'userAgent' => ''],
+        ]], 200)]);
+
+        $result = app(MediamtxApi::class)->findSession('m-1', 'moqSession');
+
+        $this->assertSame('5.6.7.8', $result['ip']);
+    }
 }

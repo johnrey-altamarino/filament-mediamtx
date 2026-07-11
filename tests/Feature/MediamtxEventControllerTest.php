@@ -180,4 +180,21 @@ class MediamtxEventControllerTest extends TestCase
     {
         $this->postEvent(['event' => 'ready'])->assertStatus(422);
     }
+
+    public function test_moq_read_event_labels_moq_and_enriches_ip(): void
+    {
+        Queue::fake();
+        Http::fake(['*/v3/moqsessions/list' => Http::response(['items' => [
+            ['id' => 'mr-1', 'remoteAddr' => '5.6.7.8:2222', 'userAgent' => ''],
+        ]], 200)]);
+
+        $this->postEvent(['event' => 'read', 'path' => 'live/cam1', 'id' => 'mr-1', 'type' => 'moqSession'])
+            ->assertNoContent();
+
+        Queue::assertPushed(SendTelegramMessage::class, function (SendTelegramMessage $job) {
+            return str_contains($job->text, 'Viewer started')
+                && str_contains($job->text, 'MoQ')
+                && str_contains($job->text, '5.6.7.8');
+        });
+    }
 }

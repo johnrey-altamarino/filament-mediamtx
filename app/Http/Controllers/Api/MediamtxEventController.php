@@ -41,7 +41,7 @@ class MediamtxEventController
             $userAgent = '';
 
             if ($id !== '') {
-                $session = $api->findSession($id);
+                $session = $api->findSession($id, $data['type'] ?? '');
 
                 if ($ip === '') {
                     $ip = $session['ip'];

@@ -86,7 +86,7 @@ class MediamtxApi
      * nor the User-Agent. Best-effort: both are '' when the id is unknown, the
      * session has already ended, or the API is unreachable.
      */
-    public function findSession(string $id): array
+    public function findSession(string $id, string $type = ''): array
     {
         $empty = ['ip' => '', 'userAgent' => ''];
 
@@ -95,7 +95,9 @@ class MediamtxApi
         }
 
         try {
-            $items = data_get($this->listWebRtcSessions(), 'items', []);
+            $items = $type === 'moqSession'
+                ? data_get($this->listMoqSessions(), 'items', [])
+                : data_get($this->listWebRtcSessions(), 'items', []);
         } catch (Throwable $e) {
             return $empty;
         }

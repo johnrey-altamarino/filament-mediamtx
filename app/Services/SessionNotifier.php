@@ -80,6 +80,7 @@ class SessionNotifier
     {
         return match ($type) {
             'webRTCSession' => 'WebRTC',
+            'moqSession' => 'MoQ',
             'rtmpConn' => 'RTMP',
             'rtmpsConn' => 'RTMPS',
             'rtspSession' => 'RTSP',
