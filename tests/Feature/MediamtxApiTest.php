@@ -113,4 +113,39 @@ class MediamtxApiTest extends TestCase
 
         $this->assertSame('live/a', $res['items'][0]['name']);
     }
+
+    public function test_list_moq_sessions_returns_decoded_items(): void
+    {
+        Http::fake(['*/v3/moqsessions/list' => Http::response(['items' => [
+            ['id' => 'm-1', 'path' => 'live/cam1', 'state' => 'read', 'remoteAddr' => '5.6.7.8:1111'],
+        ]], 200)]);
+
+        $items = data_get(app(MediamtxApi::class)->listMoqSessions(), 'items');
+
+        $this->assertSame('m-1', $items[0]['id']);
+    }
+
+    public function test_kick_routes_to_protocol_endpoint(): void
+    {
+        Http::fake(['*' => Http::response('', 200)]);
+        $api = app(MediamtxApi::class);
+
+        $api->kick('webrtc', 'w1');
+        $api->kick('moq', 'm1');
+        $api->kick('rtmp', 'r1');
+        $api->kick('rtsp', 's1');
+        $api->kick('srt', 't1');
+
+        Http::assertSent(fn ($r) => $r->method() === 'POST' && str_ends_with($r->url(), '/v3/webrtcsessions/kick/w1'));
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/v3/moqsessions/kick/m1'));
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/v3/rtmpconns/kick/r1'));
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/v3/rtspsessions/kick/s1'));
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/v3/srtconns/kick/t1'));
+    }
+
+    public function test_kick_rejects_unkickable_type(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        app(MediamtxApi::class)->kick('hls', 'x1');
+    }
 }

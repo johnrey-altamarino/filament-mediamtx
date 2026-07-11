@@ -36,9 +36,46 @@ class MediamtxApi
         return $this->http()->get('/v3/paths/list')->throw()->json();
     }
 
+    public function listMoqSessions(): array
+    {
+        return $this->http()->get('/v3/moqsessions/list')->throw()->json();
+    }
+
+    public function listRtmpConns(): array
+    {
+        return $this->http()->get('/v3/rtmpconns/list')->throw()->json();
+    }
+
+    public function listRtspSessions(): array
+    {
+        return $this->http()->get('/v3/rtspsessions/list')->throw()->json();
+    }
+
+    public function listSrtConns(): array
+    {
+        return $this->http()->get('/v3/srtconns/list')->throw()->json();
+    }
+
     public function kickWebRtc(string $id): void
     {
         $this->http()->post("/v3/webrtcsessions/kick/{$id}")->throw();
+    }
+
+    /**
+     * Kick a live session by its stored DB type. HLS has no kick endpoint.
+     */
+    public function kick(string $type, string $id): void
+    {
+        $endpoint = match ($type) {
+            'webrtc' => "/v3/webrtcsessions/kick/{$id}",
+            'moq' => "/v3/moqsessions/kick/{$id}",
+            'rtmp' => "/v3/rtmpconns/kick/{$id}",
+            'rtsp' => "/v3/rtspsessions/kick/{$id}",
+            'srt' => "/v3/srtconns/kick/{$id}",
+            default => throw new \InvalidArgumentException("Cannot kick session type: {$type}"),
+        };
+
+        $this->http()->post($endpoint)->throw();
     }
 
     /**
