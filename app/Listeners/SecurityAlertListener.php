@@ -5,6 +5,7 @@ namespace App\Listeners;
 use App\Jobs\SendTelegramMessage;
 use App\Support\TelegramAlert;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 use Spatie\Activitylog\Models\Activity;
 
 class SecurityAlertListener
@@ -13,24 +14,31 @@ class SecurityAlertListener
 
     public function handle(Activity $activity): void
     {
-        if (! config('services.telegram.enabled') || ! config('services.telegram.security_alerts_enabled')) {
-            return;
-        }
+        try {
+            if (! config('services.telegram.enabled') || ! config('services.telegram.security_alerts_enabled')) {
+                return;
+            }
 
-        if ($activity->log_name !== 'security') {
-            return;
-        }
+            if ($activity->log_name !== 'security') {
+                return;
+            }
 
-        $description = (string) $activity->description;
-        if (! in_array($description, (array) config('services.telegram.security_events', []), true)) {
-            return;
-        }
+            $description = (string) $activity->description;
+            if (! in_array($description, (array) config('services.telegram.security_events', []), true)) {
+                return;
+            }
 
-        if (! TelegramAlert::floodCap('security', self::FLOOD_CAP_PER_MINUTE)) {
-            return;
-        }
+            if (! TelegramAlert::floodCap('security', self::FLOOD_CAP_PER_MINUTE)) {
+                return;
+            }
 
-        SendTelegramMessage::dispatch($this->format($activity, $description));
+            SendTelegramMessage::dispatch($this->format($activity, $description));
+        } catch (\Throwable $e) {
+            Log::warning('Security alert dispatch failed', [
+                'description' => $activity->description ?? null,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function format(Activity $activity, string $description): string

@@ -56,11 +56,6 @@ class MediamtxApi
         return $this->http()->get('/v3/srtconns/list')->throw()->json();
     }
 
-    public function kickWebRtc(string $id): void
-    {
-        $this->http()->post("/v3/webrtcsessions/kick/{$id}")->throw();
-    }
-
     /**
      * Kick a live session by its stored DB type. HLS has no kick endpoint.
      */
@@ -79,8 +74,9 @@ class MediamtxApi
     }
 
     /**
-     * Resolve client fields for a live WebRTC session by its id:
-     * ['ip' => ..., 'userAgent' => ...].
+     * Resolve client fields for a live WebRTC or MoQ session by its id:
+     * ['ip' => ..., 'userAgent' => ...]. Pass $type = 'moqSession' to look up
+     * a MoQ session; any other value (including '') looks up WebRTC.
      *
      * Used to enrich webhook alerts, since MediaMTX hooks expose neither the IP
      * nor the User-Agent. Best-effort: both are '' when the id is unknown, the

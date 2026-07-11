@@ -31,6 +31,16 @@ class SecurityAlertListenerTest extends TestCase
         });
     }
 
+    public function test_disabled_security_alerts_gate_dispatches_nothing(): void
+    {
+        config(['services.telegram.security_alerts_enabled' => false]);
+        Queue::fake();
+
+        activity('security')->withProperties(['ip' => '9.9.9.9', 'path' => 'live/cam1'])->log('session.kicked');
+
+        Queue::assertNotPushed(SendTelegramMessage::class);
+    }
+
     public function test_non_allowlisted_security_event_is_ignored(): void
     {
         Queue::fake();
