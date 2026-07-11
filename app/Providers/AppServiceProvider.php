@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Http\Responses\LoginResponse;
+use App\Listeners\SecurityAlertListener;
 use App\Services\ClientIpResolver;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse as LoginResponseContract;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -10,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
+use Spatie\Activitylog\Models\Activity;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -45,6 +47,10 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinute(60)->by($ip),          // 60/min per IP
                 Limit::perMinute(600)->by('global'),    // global circuit breaker
             ];
+        });
+
+        Activity::created(function (Activity $activity) {
+            app(SecurityAlertListener::class)->handle($activity);
         });
     }
 }

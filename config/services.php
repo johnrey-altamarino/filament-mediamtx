@@ -67,6 +67,11 @@ return [
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
         'chat_id' => env('TELEGRAM_CHAT_ID'),
         'timeout' => (int) env('TELEGRAM_TIMEOUT', 5),
+        'security_alerts_enabled' => (bool) env('TELEGRAM_SECURITY_ALERTS_ENABLED', true),
+        'security_events' => array_values(array_filter(array_map('trim', explode(',', (string) env(
+            'TELEGRAM_SECURITY_EVENTS',
+            'session.kicked,ip.blocked.from_session,ip.blocked,ip.blocked.from_security_events,ip.blocked.from_top_ips,ip.unblocked,token.read.denied.blocked_ip,token.read.denied.bad_referer'
+        ))))),
     ],
 
 ];
