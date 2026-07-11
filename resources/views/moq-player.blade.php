@@ -107,12 +107,25 @@ const unsupportedEl = document.getElementById("unsupported");
 
 const params = new URLSearchParams(window.location.search);
 const stream = params.get("stream");
+// NOTE ON PARITY WITH /play: MoQ renders to a <canvas>, not a <video>, so the
+// `autoplay` and `controls` params do not apply. Audio always starts suspended
+// under the browser autoplay policy; `muted=false` is honoured only as a
+// best-effort auto-unmute after subscribe (browsers may keep it suspended until
+// the viewer clicks Unmute).
+const startUnmuted = params.get("muted") === "false";
 
 function setStatus(msg, isError = false) {
   statusEl.textContent = msg;
   statusEl.classList.toggle("error", isError);
 }
 function showLoader(v) { spinnerEl.classList.toggle("hidden", !v); }
+
+// Render a terminal, non-retryable message (unsupported browser, misconfig, access denied).
+function showFatal(html) {
+  document.getElementById("loader").classList.add("hidden");
+  unsupportedEl.classList.remove("hidden");
+  unsupportedEl.innerHTML = html;
+}
 
 if (!stream) {
   document.body.innerHTML = '<p style="color:#fff;font-family:sans-serif;text-align:center;margin-top:2rem">Missing required <code>?stream=</code> parameter.</p>';
@@ -121,14 +134,20 @@ if (!stream) {
 
 // MoQ playback needs WebTransport + WebCodecs. Fall back to the WHEP player otherwise.
 if (typeof window.WebTransport === "undefined" || typeof window.VideoDecoder === "undefined") {
-  const fallback = `/play${window.location.search}`;
-  document.getElementById("loader").classList.add("hidden");
-  unsupportedEl.classList.remove("hidden");
-  unsupportedEl.innerHTML =
+  const fallbackHref = `/play${window.location.search}`;
+  showFatal(
     "Your browser doesn't support Media-over-QUIC playback. " +
     "Use Chrome/Edge 110+, Firefox 130+, or Safari 26.4+, or " +
-    '<a href="' + fallback + '">open the standard player</a>.';
+    '<a href="' + fallbackHref + '">open the standard player</a>.'
+  );
   throw new Error("WebTransport/WebCodecs unsupported");
+}
+
+// Without a configured endpoint the WebTransport URL would be an invalid relative
+// path; fail clearly instead of surfacing a raw browser error.
+if (!MOQ_BASE_URL) {
+  showFatal("Media-over-QUIC is not configured (MEDIAMTX_MOQ_BASE_URL is unset).");
+  throw new Error("MOQ_BASE_URL not configured");
 }
 
 let tokenAbort = null;
@@ -152,13 +171,19 @@ async function fetchToken() {
         signal: tokenAbort.signal,
       });
       if (res.status >= 500 && attempt < 2) continue;
-      if (!res.ok) throw new Error(`Token request denied (${res.status})`);
+      if (!res.ok) {
+        const err = new Error(`Access denied (${res.status})`);
+        // 4xx (except 429 rate-limit) is a permanent denial from the gate: mark
+        // terminal so the reader stops instead of re-POSTing /api/read forever.
+        err.terminal = res.status >= 400 && res.status < 500 && res.status !== 429;
+        throw err;
+      }
       const data = await res.json();
       if (!data.token) throw new Error("JWT not received");
       return data.token;
     } catch (err) {
-      if (err.name === "AbortError") throw err;
-      if (err.message.startsWith("Token request denied") || attempt === 2) throw err;
+      if (err.name === "AbortError" || err.terminal) throw err;
+      if (attempt === 2) throw err;
     }
   }
   throw new Error("Failed to obtain token");
@@ -175,8 +200,21 @@ function startPlayer() {
     url: `${MOQ_BASE_URL}/${stream}/moq`,
     tokenProvider: fetchToken,
     videoElement: videoEl,
-    onError: (msg) => { setStatus(msg, true); showLoader(true); },
-    onSubscribed: () => { setStatus(""); showLoader(false); },
+    onError: (msg, terminal) => {
+      if (terminal) {
+        // The reader has stopped (e.g. access denied); show the reason, no spinner.
+        showFatal(msg);
+      } else {
+        // Transient failure — the reader auto-retries; keep the viewer-facing copy generic.
+        setStatus("Reconnecting…", true);
+        showLoader(true);
+      }
+    },
+    onSubscribed: () => {
+      setStatus("");
+      showLoader(false);
+      if (startUnmuted && reader) reader.unmute(); // best-effort; autoplay policy may keep it muted
+    },
     onAudioMuted: (isMuted) => { muteEl.classList.toggle("visible", isMuted); },
   });
 }
@@ -186,7 +224,7 @@ muteEl.addEventListener("click", () => { if (reader) reader.unmute(); });
 function teardown() {
   tearingDown = true;
   if (tokenAbort) tokenAbort.abort();
-  // The reader tears its WebTransport down when the page unloads.
+  if (reader) reader.stop(); // close the WebTransport + cancel the retry loop (upstream reader had no stop path)
 }
 window.addEventListener("pagehide", teardown);
 window.addEventListener("beforeunload", teardown);

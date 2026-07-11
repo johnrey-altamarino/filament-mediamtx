@@ -6,7 +6,11 @@
 //   1. #connect(): dropped serverCertificateHashes (we serve a real trusted LE cert;
 //      pinning is capped at 14-day certs, ours is 90).
 //   2. #start(): dropped the #fetchFingerprint() step (only needed for self-signed),
-//      and added an optional async `tokenProvider` refresh hook (see @typedef Conf).
+//      added an optional async `tokenProvider` refresh hook (see @typedef Conf), and
+//      routed terminal errors (err.terminal === true) to stop() instead of retrying.
+//   3. stop(): new public method to permanently tear down (timer + WebTransport +
+//      decoders) — upstream only auto-retries and has no stop path.
+//   4. onError callback now receives a second `terminal` boolean arg.
 // #fetchFingerprint()/#authHeader()/#fingerprint remain defined but unused.
 
 /**
@@ -113,6 +117,50 @@ class MediaMTXMoQReader {
     }
   }
 
+  /**
+   * FORK: permanently stop the reader. Clears the restart timer, closes the
+   * WebTransport + decoders, and moves to a terminal "stopped" state so the
+   * retry loop (and any in-flight #handleError) no longer reschedules. The page
+   * calls this on teardown and on a permanent auth denial. Upstream has no
+   * public stop path.
+   */
+  stop() {
+    this.#state = "stopped";
+
+    if (this.#restartTimeout !== null) {
+      window.clearTimeout(this.#restartTimeout);
+      this.#restartTimeout = null;
+    }
+    if (this.#wt !== null) {
+      try {
+        this.#wt.close();
+      } catch (e) {}
+      this.#wt = null;
+    }
+    if (this.#videoDecoder !== null) {
+      try {
+        this.#videoDecoder.close();
+      } catch (e) {}
+      this.#videoDecoder = null;
+    }
+    if (this.#videoCanvas !== null) {
+      this.#videoCanvas.remove();
+      this.#videoCanvas = null;
+    }
+    if (this.#audioDecoder !== null) {
+      try {
+        this.#audioDecoder.close();
+      } catch (e) {}
+      this.#audioDecoder = null;
+    }
+    if (this.#audioCtx !== null) {
+      try {
+        this.#audioCtx.close();
+      } catch (e) {}
+      this.#audioCtx = null;
+    }
+  }
+
   #start() {
     // FORK: no fingerprint fetch (trusted cert). Refresh the token first when a
     // tokenProvider is supplied, so reconnects after the short JWT TTL still authorize.
@@ -127,7 +175,18 @@ class MediaMTXMoQReader {
       .then(() => this.#subscribeCatalog())
       .then(() => this.#subscribeAllTracks())
       .then(() => this.#drainDataStreams())
-      .catch((err) => this.#handleError(err.message));
+      .catch((err) => {
+        // FORK: a terminal error (e.g. permanent auth denial from the token
+        // provider) stops the reader instead of retrying forever.
+        if (err && err.terminal) {
+          this.stop();
+          if (this.#conf.onError !== undefined) {
+            this.#conf.onError(err.message, true);
+          }
+          return;
+        }
+        this.#handleError(err.message);
+      });
   }
 
   /** @param {string} err */
@@ -185,7 +244,8 @@ class MediaMTXMoQReader {
       }
 
       if (this.#conf.onError !== undefined) {
-        this.#conf.onError(`${err}, retrying in some seconds`);
+        // FORK: second arg = terminal flag. false here (this path auto-retries).
+        this.#conf.onError(`${err}, retrying in some seconds`, false);
       }
     }
   }

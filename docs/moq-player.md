@@ -118,8 +118,47 @@ middleware and the `allow_direct_playback` toggle — same as `/play`. Open `/mo
     network (phone hotspot). This is inherent to WebTransport; affected viewers should use `/play`.
 - **Immediate cert error** — MediaMTX is serving `auto.crt`, or the cert isn't for `origin.jrta.online`,
   or MediaMTX wasn't restarted after the cert change. Re-run the `openssl` check above.
-- **Auth rejected (MoQ REQUEST_ERROR)** — the JWT path/permission doesn't match, or JWKS auth isn't
-  configured on the MoQ listener. Confirm `authMethod: jwt` applies and the token's `path` matches.
+- **"Access denied (403/401)" shown, player stops** — `/api/read` refused to issue a token: the
+  viewer's IP is on `blocked_ips`, the `Referer` isn't allow-listed, or `allow_direct_playback` is
+  off for a non-embedded load. This is a *terminal* state by design (the page no longer retries).
+- **Auth rejected (MoQ REQUEST_ERROR)** — a token *was* issued but MediaMTX rejected the MoQ
+  subscribe: the JWT path/permission doesn't match, or JWKS auth isn't configured on the MoQ
+  listener. Confirm `authMethod: jwt` applies and the token's `path` matches.
+
+## Parity with `/play`
+
+`/moq` intentionally differs from `/play` on a few player options, because MoQ renders to a
+`<canvas>` (not a `<video>`) and audio is governed by the browser autoplay policy:
+
+- `autoplay` and `controls` query params **do not apply** and are ignored.
+- Audio always **starts muted/suspended**; an **Unmute** button appears. `?muted=false` is honoured
+  only as a *best-effort* auto-unmute after subscribe — the browser may keep audio suspended until
+  the viewer clicks Unmute.
+
+Everything else (the `player.access` IP gate, `allow_direct_playback`, iframe/embed rules, the
+`/api/read` JWT flow, `?stream=`) behaves exactly as `/play`.
+
+## Reader fork & player hardening
+
+`resources/js/moq-reader.js` is MediaMTX's own `MediaMTXMoQReader` (v1.19.1, `moqt-18`) vendored with
+a small, documented set of fork edits (listed in the file header). Beyond the cert simplifications
+(no `serverCertificateHashes`/fingerprint, trusted LE cert), a code review drove these robustness
+additions:
+
+- **`stop()` (new public method)** — upstream only auto-retries and has no stop path. The player
+  calls `reader.stop()` on `pagehide`/`beforeunload` so the WebTransport connection and the ~2s
+  restart loop are torn down instead of leaking when the tab is closed or backgrounded (bfcache).
+- **Terminal-error handling** — a token-provider error flagged `terminal` (a permanent gate denial:
+  a 4xx from `/api/read` other than `429`) routes to `stop()` + a fatal message, **instead of
+  retrying `/api/read` every ~2s forever**. A blocked IP / disallowed referrer now sees a clear
+  "Access denied (4xx)" and the client stops, rather than spinning on "Reconnecting…".
+- **`onError(msg, terminal)`** — the callback now receives a `terminal` boolean. The page shows a
+  generic "Reconnecting…" for transient (auto-retried) errors and the actual reason only for
+  terminal ones — viewers no longer see raw QUIC/MoQ strings on a blip.
+- **Config guard** — an empty `MEDIAMTX_MOQ_BASE_URL` shows "Media-over-QUIC is not configured"
+  rather than constructing an invalid relative WebTransport URL.
+
+Transient failures (network blips, stream restarts) still auto-retry via the reader's built-in loop.
 
 ## Known-good vs. to-confirm
 
