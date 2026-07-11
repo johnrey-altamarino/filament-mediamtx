@@ -16,6 +16,7 @@ Telegram alerts.
   - [Embeddable player (`GET /play`)](#embeddable-player-get-play)
   - [Media‑over‑QUIC player (`GET /moq`)](#media-over-quic-player-get-moq)
   - [Session alerts (event‑driven)](#session-alerts-eventdriven)
+  - [Telegram security alerts](#telegram-security-alerts)
   - [Admin panel](#admin-panel)
   - [RBAC](#rbac)
   - [Services](#services)
@@ -36,10 +37,14 @@ Telegram alerts.
   referrer allowlist.
 - **Embeddable WebRTC player** at `/play`, protected by an IP whitelist/blacklist and iframe‑embedding rules.
 - **Media‑over‑QUIC player** at `/moq` — the same streams over MoQ/WebTransport for lower latency, reusing the same access gates.
-- **Live session monitoring** — a Sessions page synced on demand from the MediaMTX REST API, with play (publish sessions only), kick, and block‑IP actions.
+- **Live session monitoring** — a Sessions page synced on demand from the MediaMTX REST API, listing **all
+  protocols** (WebRTC, MoQ, RTMP, RTSP, SRT), with play (publish sessions only), kick (any protocol except HLS,
+  which has no kick endpoint), and block‑IP actions.
 - **Analytics dashboard** — OS / browser / device / top‑IP breakdowns aggregated from viewer requests.
 - **Security & activity audit logs** via Spatie Activitylog.
-- **Real‑time Telegram alerts** when a stream or viewer starts/stops, driven by MediaMTX run‑hooks (no polling).
+- **Real‑time Telegram alerts** when a stream or viewer starts/stops, driven by MediaMTX run‑hooks (no polling);
+  plus a curated, configurable set of security alerts (kicks, IP blocks/unblocks, denied reads) forwarded from the
+  activity log.
 - **Role‑based access control** (super‑admin / moderator / monitoring) via Spatie Permission.
 
 ---
@@ -115,6 +120,20 @@ from the MediaMTX Control API and deduped by session id.
 
 See [`docs/mediamtx-hooks.md`](docs/mediamtx-hooks.md) for the exact `mediamtx.yml` hook configuration.
 
+### Telegram security alerts
+
+A single listener, `SecurityAlertListener`, forwards a **curated, configurable allowlist** of
+`security`‑channel activity‑log events to Telegram — session kicks, IP blocks/unblocks (from the Sessions page,
+Top‑IPs widget, Security Events resource, or `BlockedIpResource`), and denied read‑token requests (blocked IP or
+bad referrer). Routine CRUD (referrer/token add‑rotate‑delete) is excluded by default to avoid noise.
+
+It is gated by **both** `TELEGRAM_ALERTS_ENABLED` and `TELEGRAM_SECURITY_ALERTS_ENABLED`, applies a per‑minute
+flood cap (30/min) so denied‑read spikes under attack don't flood the chat, and reuses the same queued
+`SendTelegramMessage` job as the session-start/stop alerts above. The event allowlist is configurable via
+`TELEGRAM_SECURITY_EVENTS` (comma‑separated activity `description` values) without a code change. See
+[`docs/sessions-telegram-improvements.md`](docs/sessions-telegram-improvements.md) for the full design, the
+default allowlist, and how to extend it.
+
 ### Admin panel
 
 Panel root is `/` (no path prefix). Login uses **username** (the email column was dropped).
@@ -133,7 +152,8 @@ Panel root is `/` (no path prefix). Login uses **username** (the email column wa
 
 **Pages:**
 
-- `Sessions` — live WebRTC session table, synced on demand from the MediaMTX API while open; supports kick and block‑IP
+- `Sessions` — live session table covering **all protocols** (WebRTC, MoQ, RTMP, RTSP, SRT), synced on demand from
+  the MediaMTX API while open; supports kick (any protocol except HLS, which has no kick endpoint) and block‑IP
   actions inline.
 - `PlayerSettings` — whitelist/blacklist mode toggle + direct‑playback option for the `/play` player.
 
@@ -154,13 +174,15 @@ Access gates are inline `visible()` / `canAccess()` / `canViewAny()` callbacks o
 
 | Service | Purpose |
 |---|---|
-| `MediamtxApi` | HTTP client wrapping the MediaMTX v3 REST API (list / kick WebRTC sessions, resolve reader IPs). |
+| `MediamtxApi` | HTTP client wrapping the MediaMTX v3 REST API — list / kick sessions for every protocol (WebRTC, MoQ, RTMP, RTSP, SRT) via `kick(string $type, string $id)`, resolve reader IPs. |
 | `MediamtxJwtIssuer` | Signs publish & read JWTs (RS256). |
-| `MediamtxSessionRefresher` | `syncSnapshot()` — syncs live WebRTC sessions from MediaMTX into `mediamtx_sessions`. |
+| `MediamtxSessionRefresher` | `syncSnapshot()` — merges live sessions from all five MediaMTX list endpoints into `mediamtx_sessions`, best‑effort per protocol. |
 | `ClientIpResolver` | Resolves the real client IP, trusting forwarding headers only from configured proxies. |
 | `ViewerRequestLogger` | Logs throttled viewer requests with UA parsing. |
 | `DashboardAnalytics` | Aggregates `viewer_requests` for OS/browser/device/top‑IP breakdowns. |
 | `SessionEvent` / `SessionNotifier` | DTO + fan‑out for stream/viewer start/stop alerts. |
+| `SecurityAlertListener` | Forwards a curated, allowlisted set of `security`‑channel activity events to Telegram. |
+| `TelegramAlert` (support) | Shared HTML‑escaping + per‑minute flood‑cap helpers used by `SessionNotifier` and `SecurityAlertListener`. |
 | `TelegramNotifier` | Formats and dispatches Telegram alert messages (queued). |
 
 ---
@@ -208,6 +230,8 @@ TELEGRAM_ALERTS_ENABLED=true
 TELEGRAM_BOT_TOKEN=                                 # from @BotFather
 TELEGRAM_CHAT_ID=                                   # chat or channel id
 TELEGRAM_TIMEOUT=5
+TELEGRAM_SECURITY_ALERTS_ENABLED=true               # forward curated `security`-channel activity to Telegram
+TELEGRAM_SECURITY_EVENTS=session.kicked,ip.blocked.from_session,ip.blocked,ip.blocked.from_security_events,ip.blocked.from_top_ips,ip.unblocked,token.read.denied.blocked_ip,token.read.denied.bad_referer
 MEDIAMTX_WEBHOOK_SECRET=                            # shared secret for X-Webhook-Secret header
 ```
 
