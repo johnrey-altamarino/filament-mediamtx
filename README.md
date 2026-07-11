@@ -14,6 +14,7 @@ Telegram alerts.
   - [JWT / MediaMTX integration](#jwt--mediamtx-integration)
   - [Read‑token flow (`POST /api/read`)](#readtoken-flow-post-apiread)
   - [Embeddable player (`GET /play`)](#embeddable-player-get-play)
+  - [Media‑over‑QUIC player (`GET /moq`)](#media-over-quic-player-get-moq)
   - [Session alerts (event‑driven)](#session-alerts-eventdriven)
   - [Admin panel](#admin-panel)
   - [RBAC](#rbac)
@@ -34,6 +35,7 @@ Telegram alerts.
 - **Read tokens** — short‑lived (default 60 s) JWTs minted on demand for embedded players, gated by IP blocklist and
   referrer allowlist.
 - **Embeddable WebRTC player** at `/play`, protected by an IP whitelist/blacklist and iframe‑embedding rules.
+- **Media‑over‑QUIC player** at `/moq` — the same streams over MoQ/WebTransport for lower latency, reusing the same access gates.
 - **Live session monitoring** — a Sessions page synced on demand from the MediaMTX REST API, with play (publish sessions only), kick, and block‑IP actions.
 - **Analytics dashboard** — OS / browser / device / top‑IP breakdowns aggregated from viewer requests.
 - **Security & activity audit logs** via Spatie Activitylog.
@@ -86,6 +88,22 @@ throttled by a cache lock (`VIEWER_LOG_THROTTLE_SECONDS`, default 10 s; fingerpr
 
 The player fetches a short‑lived read token from `POST /api/read` and connects to MediaMTX over WebRTC
 (`MEDIAMTX_STREAM_BASE_URL`).
+
+### Media‑over‑QUIC player (`GET /moq`)
+
+`MoqPlayerController` renders a second, parallel player that plays the same streams over
+**Media‑over‑QUIC (MoQ / WebTransport)** for lower latency (~200–300 ms). It reuses the `/play`
+access model exactly — same `player.access` IP gate, same `allow_direct_playback`/embed rules, the
+same read JWT from `POST /api/read` (unchanged). It uses a vendored copy of MediaMTX's own browser
+reader (`resources/js/moq-reader.js`, WebTransport + WebCodecs) and passes the JWT as the MoQ
+AUTH_TOKEN parameter (WebTransport can't set an `Authorization` header).
+
+Unlike WHEP, the MoQ **media** rides a **direct UDP** path to MediaMTX (`MEDIAMTX_MOQ_BASE_URL`,
+default port 8892) — WebTransport is HTTP/3/QUIC and can't be reverse‑proxied by Apache or
+Cloudflare — and MediaMTX must present a real TLS cert for the hostname. Browser support is narrower
+(Chrome/Edge 110+, Firefox 130+, Safari 26.4+); unsupported browsers get a fallback link to `/play`.
+WHIP ingest and WHEP `/play` are untouched. See [docs/moq-player.md](docs/moq-player.md) for server
+config, cert, and network exposure.
 
 ### Session alerts (event‑driven)
 
@@ -153,6 +171,7 @@ Access gates are inline `visible()` / `canAccess()` / `canViewAny()` callbacks o
 |---|---|---|---|
 | GET | `/.well-known/jwks.json` | `JwksController` | `jwks.ip` (`AllowMediamtxOnly`) |
 | GET | `/play` | `PlayerController` | `player.access` (`PlayerAccessMiddleware`) |
+| GET | `/moq` | `MoqPlayerController` | `player.access` (`PlayerAccessMiddleware`) |
 | POST | `/api/read` | `ReadTokenController` | `throttle:token-read` |
 | POST | `/api/mediamtx/event` | `MediamtxEventController` | `mediamtx.webhook` (`VerifyMediamtxWebhook`) |
 | — | `/` (admin panel) | Filament | Auth (username login) |
@@ -175,7 +194,8 @@ MEDIAMTX_API_USER=                                 # Basic auth user (optional)
 MEDIAMTX_API_PASS=                                 # Basic auth pass (optional)
 MEDIAMTX_API_TIMEOUT=10                            # HTTP timeout (seconds)
 MEDIAMTX_SESSION_STALE_SECONDS=20                  # Drop sessions not seen within this window
-MEDIAMTX_STREAM_BASE_URL=https://stream.example.com# WebRTC base URL used by the player
+MEDIAMTX_STREAM_BASE_URL=https://stream.example.com# WebRTC base URL used by the /play player
+MEDIAMTX_MOQ_BASE_URL=https://origin.example.com:8892 # MoQ/WebTransport endpoint for the /moq player (hostname + UDP port)
 MEDIAMTX_ALLOWED_IPS=127.0.0.1,::1                 # IPs allowed to hit /.well-known/jwks.json
 MEDIAMTX_TRUSTED_PROXIES=...                        # Proxy IPs/CIDRs whose forwarding headers are trusted (CF ranges, or "*")
 
