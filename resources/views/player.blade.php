@@ -99,6 +99,8 @@ const EMBED_SOURCE = @json($embedSource);
 let reader = null;
 let token = null;
 let retryDelay = 2000;
+let errorRetries = 0;
+const MAX_ERROR_RETRIES = 3;
 let refreshTimer = null;
 let watchdogTimer = null;
 let retryTimer = null;
@@ -229,10 +231,20 @@ async function initPlayer() {
     onError: (err) => {
       console.error("WebRTC error:", err);
       clearWatchdog();
-      setStatus("Reconnecting…");
-      showLoader(true);
       if (reader) { reader.close(); reader = null; }
       starting = false;
+
+      // Stop retrying after MAX_ERROR_RETRIES to avoid flooding /whep when the
+      // stream is not found. The counter resets on a successful track (onTrack)
+      // or when the tab is refocused (visibilitychange).
+      if (++errorRetries > MAX_ERROR_RETRIES) {
+        setStatus("Stream unavailable.", true);
+        showLoader(false);
+        return;
+      }
+
+      setStatus("Reconnecting…");
+      showLoader(true);
       retryTimer = setTimeout(() => {
         retryTimer = null;
         retryDelay = Math.min(retryDelay * 2, 30_000);
@@ -256,6 +268,7 @@ async function initPlayer() {
       }
       setStatus("");
       retryDelay = 2000;
+      errorRetries = 0;
     },
   });
 
@@ -269,6 +282,7 @@ document.addEventListener("visibilitychange", () => {
     clearWatchdog();
     if (reader) { reader.close(); reader = null; }
     starting = false;
+    errorRetries = 0;
     tokenPromise = fetchToken();
     initPlayer();
   }
