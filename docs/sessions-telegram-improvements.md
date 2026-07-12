@@ -4,8 +4,8 @@
 
 Three related improvements to the existing Live Sessions page and Telegram notification pipeline:
 
-1. **MoQ sessions** are visible on the Live Sessions page and trigger Telegram notifications,
-   symmetric to WebRTC.
+1. **MoQ sessions** are visible on the Live Sessions page. (MoQ read *alerts* are NOT achievable via
+   MediaMTX hooks — see [Known limitation: MoQ reads are not alerted](#known-limitation-moq-reads-are-not-alerted).)
 2. **Kick works for every protocol** the page lists, not just WebRTC.
 3. **Admin/security actions** (kicks, IP blocks/unblocks, referrer denials, blocked-IP hits)
    generate Telegram alerts from a single integration point, gated by a curated, configurable
@@ -85,6 +85,32 @@ any `security`-channel activity `description` values (see the `security` log cal
 `app/Filament/Pages/Sessions.php`, `app/Http/Controllers/Api/ReadTokenController.php`, and the
 `BlockedIpResource` / `AllowedReferrerResource` actions for the full set of possible descriptions),
 then restart the queue worker (see Deploy below) so the new config is picked up.
+
+## Known limitation: MoQ reads are not alerted
+
+**Symptom:** WebRTC/RTMP/RTSP/SRT viewers produce a "Viewer started/left" Telegram alert; MoQ viewers
+produce **nothing**, even though the MoQ session is clearly live (visible in `/v3/moqsessions/list`
+and on the Live Sessions page).
+
+**Root cause:** Read/viewer alerts are driven by MediaMTX's `runOnRead` / `runOnUnread` hooks, which
+POST to `/api/mediamtx/event` (`MediamtxEventController` → `SessionNotifier`). In MediaMTX **v1.19.1
+and v1.19.2** (and the unreleased `main` branch as of 2026-07-12), the read hook is fired by each
+protocol's own session code — `internal/servers/{webrtc,rtmp,rtsp,srt}/…` all call `hooks.OnRead(…)`
+— but **`internal/servers/moq/session.go` calls no hooks at all**. So MediaMTX never notifies us of a
+MoQ read; the webhook simply never fires. This is a gap in MediaMTX, not in this app: the app's
+MoQ-read handling (`MediamtxApi::findSession($id, 'moqSession')` enrichment and the `moqSession → MoQ`
+label in `SessionNotifier::protocolLabel()`) is correct and will start working the moment MediaMTX
+adds the hook — no app change needed.
+
+**Status:** Left as-is by decision (no polling/`/api/read` workaround). Re-check on each MediaMTX
+upgrade with:
+
+```bash
+# Non-zero output on a new tag = MoQ read hooks landed → MoQ alerts start working automatically.
+curl -s "https://raw.githubusercontent.com/bluenviron/mediamtx/<new-tag>/internal/servers/moq/session.go" | grep -c "hooks.OnRead"
+```
+
+If that prints `1`, MoQ viewer alerts will flow through the existing pipeline with no code change.
 
 ## No new DB migrations
 
