@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Stream — Embed Example</title>
+
+  <style>
+    /* ------------------------------------------------------------------
+       Responsive 16:9 wrapper.
+       This keeps the player at a proper widescreen shape and lets it
+       shrink/grow with the page. You can drop this <style> block into
+       your own site's stylesheet.
+    ------------------------------------------------------------------ */
+    .video-embed {
+      position: relative;
+      width: 100%;          /* fills whatever container you put it in   */
+      max-width: 900px;     /* optional: cap how wide the player gets   */
+      margin: 0 auto;       /* center it on the page                    */
+      aspect-ratio: 16 / 9; /* keeps the classic widescreen shape       */
+      background: #000;      /* black while the stream is connecting     */
+    }
+
+    .video-embed iframe {
+      position: absolute;
+      inset: 0;             /* pin to all four edges of the wrapper     */
+      width: 100%;
+      height: 100%;
+      border: 0;            /* remove the default iframe border         */
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ==================================================================
+       THE EMBED
+       ------------------------------------------------------------------
+       Copy the block below into your web page wherever you want the
+       live stream to appear.
+
+       The "stream" value (cgstudio) selects which stream to show.
+       ================================================================== -->
+  <div class="video-embed">
+    <iframe
+      src="https://studio.jrta.online/play?stream=cgstudio"
+      allow="autoplay; fullscreen"
+      allowfullscreen>
+    </iframe>
+  </div>
+
+
+  <!-- ==================================================================
+       OPTIONS (all optional)
+       ------------------------------------------------------------------
+       Add these to the end of the src URL, separated by "&", to change
+       how the player behaves:
+
+         stream=cgstudio     Which stream to play. (required)
+
+         muted=false         Start with sound ON.
+                             Default is muted. NOTE: most browsers block
+                             sound-on autoplay, so if you unmute, the
+                             viewer may need to click the player to start.
+
+         autoplay=false      Do NOT start playing automatically.
+                             Default is autoplay ON.
+
+         controls=true       Show the video controls (play/pause, volume).
+                             Default hides them for a clean look.
+
+       Example with options:
+         https://studio.jrta.online/play?stream=cgstudio&controls=true&muted=false
+       ================================================================== -->
+
+
+  <!-- ==================================================================
+       IMPORTANT — BEFORE THIS WORKS ON YOUR SITE
+       ------------------------------------------------------------------
+       For security, the stream will only play when embedded on an
+       approved website. Send us the exact domain where you'll place
+       this player (for example: https://www.yourcompany.com) so we can
+       add it to the allow-list.
+
+       Until your domain is approved, the player area will stay black.
+       ================================================================== -->
+
+</body>
+</html>
