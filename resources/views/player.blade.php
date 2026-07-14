@@ -118,10 +118,12 @@ const stream = params.get("stream");
 const autoplay = params.get("autoplay") !== "false";
 const controls = params.get("controls") === "true";
 const muted = params.get("muted") !== "false";
+const objectFit = params.get("vof");
 
 if (autoplay) videoEl.setAttribute("autoplay", "");
 if (controls) videoEl.setAttribute("controls", "");
 if (muted) videoEl.muted = true;
+if (objectFit === "contain" || objectFit === "cover") videoEl.style.objectFit = objectFit;
 
 if (!stream) {
   document.body.innerHTML = '<p style="color:#fff;font-family:sans-serif;text-align:center;margin-top:2rem">Missing required <code>?stream=</code> parameter.</p>';
