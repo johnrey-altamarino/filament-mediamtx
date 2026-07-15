@@ -16,18 +16,42 @@
     height: 100%;
     width: 100%;
     background: black;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    overflow: hidden;
   }
+  #stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+  #bg-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Scale up so the blur's soft edges never reveal the frame boundary. */
+    transform: scale(1.15);
+    filter: blur(40px) brightness(0.55) saturate(1.2);
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  #bg-video.visible { opacity: 1; }
   video {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    background: black;
+    background: transparent;
+  }
+  #myvideo {
+    position: relative;
+    z-index: 1;
   }
   #loader {
     position: absolute;
+    inset: 0;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -59,6 +83,7 @@
   #tap-overlay {
     position: absolute;
     inset: 0;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -110,19 +135,22 @@
 </head>
 <body>
 
-<video id="myvideo" playsinline disablepictureinpicture></video>
-<div id="loader">
-  <img id="spinner" class="spinner" src="/img/loading-image.png" alt="Loading" />
-  <div id="status"></div>
+<div id="stage">
+  <video id="bg-video" playsinline disablepictureinpicture muted tabindex="-1" aria-hidden="true"></video>
+  <video id="myvideo" playsinline disablepictureinpicture></video>
+  <div id="loader">
+    <img id="spinner" class="spinner" src="/img/loading-image.png" alt="Loading" />
+    <div id="status"></div>
+  </div>
+  <div id="tap-overlay" class="hidden">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg>
+    <span>Tap to play</span>
+  </div>
+  <button id="unmute-btn" class="hidden" type="button" aria-label="Tap for sound">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+    <span>Tap for sound</span>
+  </button>
 </div>
-<div id="tap-overlay" class="hidden">
-  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg>
-  <span>Tap to play</span>
-</div>
-<button id="unmute-btn" class="hidden" type="button" aria-label="Tap for sound">
-  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
-  <span>Tap for sound</span>
-</button>
 
 <script>
 const WHEP_BASE_URL = "{{ $whepBaseUrl }}";
@@ -142,6 +170,7 @@ let tearingDown = false;
 
 const statusEl = document.getElementById("status");
 const videoEl = document.getElementById("myvideo");
+const bgVideoEl = document.getElementById("bg-video");
 const spinnerEl = document.getElementById("spinner");
 const tapOverlay = document.getElementById("tap-overlay");
 const unmuteBtn = document.getElementById("unmute-btn");
@@ -168,6 +197,11 @@ if (autoplay) videoEl.setAttribute("autoplay", "");
 if (controls) videoEl.setAttribute("controls", "");
 if (muted) videoEl.muted = true;
 if (objectFit === "contain" || objectFit === "cover") videoEl.style.objectFit = objectFit;
+
+// "cover" already fills the frame, so the blurred backdrop would never be
+// visible — skip attaching the stream to it and save the extra decode.
+const useBlurBg = objectFit !== "cover";
+bgVideoEl.setAttribute("autoplay", "");
 
 if (!stream) {
   document.body.innerHTML = '<p style="color:#fff;font-family:sans-serif;text-align:center;margin-top:2rem">Missing required <code>?stream=</code> parameter.</p>';
@@ -419,6 +453,11 @@ async function initPlayer() {
     onTrack: (evt) => {
       clearWatchdog();
       videoEl.srcObject = evt.streams[0];
+      if (useBlurBg) {
+        bgVideoEl.srcObject = evt.streams[0];
+        bgVideoEl.play().catch(() => {});
+        bgVideoEl.classList.add("visible");
+      }
       if (autoplay) {
         videoEl.play().catch((err) => {
           if (err.name === "NotAllowedError") {
