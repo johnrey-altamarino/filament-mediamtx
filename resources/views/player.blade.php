@@ -153,7 +153,13 @@ function clearWatchdog() {
   if (watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
 }
 
-videoEl.addEventListener("playing", () => showLoader(false));
+videoEl.addEventListener("playing", () => {
+  showLoader(false);
+  // Authoritative signal that playback has actually started. Hide the tap
+  // overlay here too — don't rely solely on the play() promise in the click
+  // handler, which can reject on iOS when auto-unmute's play() races it.
+  tapOverlay.classList.add("hidden");
+});
 videoEl.addEventListener("waiting", () => showLoader(true));
 
 tapOverlay.addEventListener("click", () => {
