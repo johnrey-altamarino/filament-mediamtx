@@ -82,8 +82,9 @@
      embedded iframe off the parent's activation, so we need a real in-frame tap. */
   #unmute-btn {
     position: absolute;
-    bottom: 16px;
-    right: 16px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     z-index: 2;
     display: inline-flex;
     align-items: center;
