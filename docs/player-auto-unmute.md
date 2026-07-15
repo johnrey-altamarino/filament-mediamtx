@@ -43,28 +43,58 @@ the iframe's *delegated* autoplay policy to `"allowed"`.
 
 In [resources/views/player.blade.php](../resources/views/player.blade.php) the
 player still starts muted (so the video always shows — no black-frame risk), then
-unmutes **once** on the first sign audible playback is permitted, via two
-complementary, feature-detected triggers:
+unmutes **once** on the first sign audible playback is permitted, via three
+feature-detected triggers wired up when playback goes live (`onTrack`):
 
 1. **Direct interaction** — `pointerup` / `keydown` on `document`, `{ once: true }`.
-   Covers the standalone player and ordinary embeds where taps reach the frame.
-   Never fires on the canvas-overlay embed (harmless).
-2. **Autoplay-policy watcher** — after playback is live (`onTrack`), poll
-   `navigator.getAutoplayPolicy("mediaelement")` every 750 ms; the moment it reads
-   `"allowed"`, set `muted = false` once and stop. This is what unmutes on the
-   game-HUD page, right after the viewer's first tap on the canvas.
+   A genuine user gesture always permits sound. Covers the standalone player and
+   ordinary embeds where taps reach the frame. Never fires on the canvas-overlay
+   embed (harmless).
+2. **Autoplay-policy check** — `navigator.getAutoplayPolicy(videoEl) === "allowed"`,
+   polled cheaply. Side-effect-free; commits to sound when the policy reports it.
+3. **Optimistic probe (embedded only)** — every 1.5 s, *attempt* `muted = false`
+   + `play()`, then after 200 ms verify: if the element is playing and unmuted,
+   keep it (sound is live); otherwise the browser denied sound (it pauses or
+   re-mutes the element), so revert to muted playback and try again. Once the
+   viewer taps the host page, `allow="autoplay"` delegation lets the next probe
+   stick. Capped at `MAX_UNMUTE_PROBES` (~60 s) of probing, after which the quiet
+   gesture + policy checks keep running indefinitely.
 
-Key safety properties:
+### Why the probe (and not the policy query alone)
 
-- Reading `getAutoplayPolicy` has **no side effects**. We never blind-set
-  `muted = false` without permission, because Chrome punishes that by **pausing**
-  the video.
-- Idempotent and self-cleaning: the first trigger to fire unmutes and tears down
-  the other (and the poll); `teardown()` also clears the poll.
-- **No regression:** if no signal ever grants permission, the player simply stays
-  muted — exactly today's behavior. Best case it auto-unmutes on first interaction.
-- Guarded by the existing `muted` flag: with `?muted=false` the whole mechanism is
-  skipped (nothing to unmute).
+The first shipped version relied **only** on trigger 2, using the *string* form
+`getAutoplayPolicy("mediaelement")`. It worked standalone but **never unmuted when
+embedded**. Root cause: inside a cross-origin iframe that query reflects only *this
+frame's own* user activation — which never changes, because no tap reaches the
+frame — so it stays `"allowed-muted"` forever. The delegated `allow="autoplay"`
+grant (which depends on the *top* page's gesture) is not surfaced by that query.
+Trigger 2 now uses the element form `getAutoplayPolicy(videoEl)` (more likely to
+honour delegation) but is treated as best-effort; trigger 3 is what actually
+carries the embedded case, by testing the real operation instead of trusting the
+policy report.
+
+### Safety properties
+
+- The probe runs **embedded only** (`window.self !== window.top`). In the
+  top-level document, unmuting before a click would make Chrome **pause** the
+  video — regressing the working direct-playback case — so the probe is skipped
+  there and only the gesture/policy triggers apply.
+- Every failed probe reverts to muted playback within ~200 ms, so a denied attempt
+  is at worst a brief hitch (often none, when the browser re-mutes rather than
+  pauses). The video never gets stuck paused.
+- Idempotent and self-cleaning: the first trigger to succeed unmutes and tears
+  down the timer + listeners; `teardown()` also clears them.
+- **No regression:** if no signal ever grants permission, the player stays muted —
+  exactly the prior behavior. Guarded by the existing `muted` flag, so `?muted=false`
+  skips the whole mechanism.
+
+### Debugging
+
+Set `localStorage.unmuteDebug = "1"` on the player origin (open
+`https://studio.jrta.online/play` directly and run it in the console — localStorage
+is shared with the embedded iframe on the same origin), then reload the embed. The
+player logs `[player:unmute] …` lines: whether it's embedded, whether the policy
+API exists, and each probe's outcome.
 
 ## Verify
 

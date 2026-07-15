@@ -163,67 +163,103 @@ tapOverlay.addEventListener("click", () => {
 });
 
 // --- Auto-unmute -----------------------------------------------------------
-// The player starts muted so it can autoplay. We flip to sound at the first sign
-// the browser will allow audible playback, once, then never touch mute again.
+// The player starts muted so it can autoplay. We flip it to sound at the first
+// sign the browser will allow audible playback, once, then stop.
 //
-// Two independent triggers, because embeds differ:
-//   1. A pointer/key interaction that reaches THIS document — covers the
-//      standalone player and ordinary iframe embeds.
-//   2. The autoplay policy turning "allowed" — the only signal available when a
-//      host page lays a <canvas> over the iframe with `pointer-events: none`
-//      (e.g. our game HUD embeds), so no tap ever reaches us. Those pages set
-//      `allow="autoplay"` on the iframe, so once the viewer taps anywhere on the
-//      host page the top frame gains user activation and our delegated policy
-//      flips to "allowed".
-//
-// Reading getAutoplayPolicy has no side effects. We never blind-set muted=false
-// without permission: Chrome punishes that by PAUSING the video.
+// Triggers, because embeds differ:
+//   1. A pointer/key interaction that reaches THIS document — a genuine user
+//      gesture always permits sound. Covers the standalone player and ordinary
+//      iframe embeds.
+//   2. Autoplay policy reported "allowed" — a cheap, side-effect-free check.
+//   3. Optimistic probe (EMBEDDED ONLY) — for host pages that lay a <canvas>
+//      over the iframe with `pointer-events: none`, so no tap ever reaches us
+//      (our game HUD embeds). Those pages set `allow="autoplay"`, so once the
+//      viewer taps anywhere on the host page the top frame gains activation and
+//      the delegated permission lets THIS frame play with sound. No event marks
+//      that moment inside the frame, and the policy query above does NOT reflect
+//      the delegated grant, so we periodically *try* to unmute and keep it only
+//      if it sticks; while sound isn't permitted the browser pauses/re-mutes the
+//      element, which we detect and revert. We never probe in the top-level
+//      document — there, unmuting before a click would pause the video.
+const isEmbedded = window.self !== window.top;
+const UNMUTE_DEBUG = (() => { try { return localStorage.getItem("unmuteDebug") === "1"; } catch { return false; } })();
+const unmuteLog = (...a) => { if (UNMUTE_DEBUG) console.info("[player:unmute]", ...a); };
+
 let unmuted = false;
 let watchingUnmute = false;
-let policyPoll = null;
+let unmuteTimer = null;
+let unmuteProbes = 0;
+const MAX_UNMUTE_PROBES = 40; // ~60s of janky probing, then fall back to the quiet checks
 
-function autoplayAllowsSound() {
+// Element form honours the delegated allow="autoplay" grant; the string form only
+// reflects this frame's own (never-changing, when embedded) activation state.
+function policyAllowsSound() {
   if (typeof navigator.getAutoplayPolicy !== "function") return false;
-  try {
-    return navigator.getAutoplayPolicy("mediaelement") === "allowed";
-  } catch {
-    return false;
-  }
+  try { return navigator.getAutoplayPolicy(videoEl) === "allowed"; }
+  catch { return false; }
 }
 
 function stopUnmuteWatchers() {
-  if (policyPoll) { clearInterval(policyPoll); policyPoll = null; }
+  if (unmuteTimer) { clearInterval(unmuteTimer); unmuteTimer = null; }
   document.removeEventListener("pointerup", unmuteFromGesture);
   document.removeEventListener("keydown", unmuteFromGesture);
 }
 
-function doUnmute() {
+// Commit to sound and stop watching. Used by triggers 1 and 2, where we already
+// know (gesture) or trust (policy) that sound is permitted.
+function doUnmute(reason) {
   if (unmuted) return;
   unmuted = true;
   videoEl.muted = false;
   videoEl.play().catch(() => {}); // no-op when already playing
   stopUnmuteWatchers();
+  unmuteLog("unmuted via", reason);
 }
+function unmuteFromGesture() { doUnmute("gesture"); }
 
-function unmuteFromGesture() { doUnmute(); }
+// Trigger 3: try to unmute, then verify. If sound isn't permitted yet the browser
+// pauses or re-mutes the element — detect that and restore muted playback so the
+// video keeps running until the next attempt.
+function probeUnmute() {
+  if (unmuted) return;
+  unmuteProbes++;
+  videoEl.muted = false;
+  videoEl.play().catch(() => {});
+  setTimeout(() => {
+    if (unmuted) return;
+    if (!videoEl.muted && !videoEl.paused) {
+      unmuted = true;
+      stopUnmuteWatchers();
+      unmuteLog("unmuted via probe #" + unmuteProbes);
+    } else {
+      videoEl.muted = true;                       // browser denied sound — stay muted
+      if (videoEl.paused) videoEl.play().catch(() => {});
+      unmuteLog("probe #" + unmuteProbes, "denied (paused=" + videoEl.paused + ")");
+    }
+  }, 200);
+}
 
 // Wired up once playback is live (see onTrack). Idempotent and no-op if the
 // player wasn't started muted (?muted=false), since there is nothing to unmute.
 function startAutoUnmute() {
   if (!muted || unmuted || watchingUnmute) return;
   watchingUnmute = true;
+  unmuteLog("watching; embedded=" + isEmbedded +
+    " policyApi=" + (typeof navigator.getAutoplayPolicy === "function"));
 
   // Trigger 1: a real interaction inside this document.
   document.addEventListener("pointerup", unmuteFromGesture, { once: true });
   document.addEventListener("keydown", unmuteFromGesture, { once: true });
 
-  // Trigger 2: poll the autoplay policy for the canvas-overlay embed case.
-  if (typeof navigator.getAutoplayPolicy === "function") {
-    if (autoplayAllowsSound()) { doUnmute(); return; }
-    policyPoll = setInterval(() => {
-      if (autoplayAllowsSound()) doUnmute();
-    }, 750);
-  }
+  if (policyAllowsSound()) { doUnmute("policy"); return; }
+
+  unmuteTimer = setInterval(() => {
+    if (unmuted) { stopUnmuteWatchers(); return; }
+    if (policyAllowsSound()) { doUnmute("policy"); return; }
+    // Only the canvas-overlay embed needs the janky probe. Stop probing after the
+    // cap, but keep the quiet gesture + policy checks alive indefinitely.
+    if (isEmbedded && unmuteProbes < MAX_UNMUTE_PROBES) probeUnmute();
+  }, 1500);
 }
 
 async function fetchToken() {
