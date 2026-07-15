@@ -47,15 +47,15 @@
     color: #ff6b6b;
   }
   .spinner {
-    width: 36px;
-    height: 36px;
-    border: 3px solid rgba(255,255,255,0.12);
-    border-top-color: rgba(255,255,255,0.55);
-    border-radius: 50%;
-    animation: spin 0.75s linear infinite;
+    width: 120px;
+    height: auto;
     display: inline-block;
+    animation: pulse 1.2s ease-in-out infinite;
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.45; transform: scale(0.92); }
+    50%      { opacity: 1;    transform: scale(1); }
+  }
   #tap-overlay {
     position: absolute;
     inset: 0;
@@ -84,7 +84,7 @@
 
 <video id="myvideo" playsinline disablepictureinpicture></video>
 <div id="loader">
-  <div id="spinner" class="spinner"></div>
+  <img id="spinner" class="spinner" src="/img/loading-image.png" alt="Loading" />
   <div id="status"></div>
 </div>
 <div id="tap-overlay" class="hidden">
@@ -311,7 +311,7 @@ async function initPlayer() {
   if (starting) return;
   starting = true;
 
-  setStatus("Connecting…");
+  setStatus("Loading stream…");
   showLoader(true);
   startWatchdog();
 
@@ -319,7 +319,7 @@ async function initPlayer() {
     await tokenPromise;
   } catch (err) {
     clearWatchdog();
-    setStatus(`Error: ${err.message}`, true);
+    setStatus(`Couldn't load stream: ${err.message}`, true);
     showLoader(false);
     starting = false;
     return;
@@ -340,12 +340,12 @@ async function initPlayer() {
       // stream is not found. The counter resets on a successful track (onTrack)
       // or when the tab is refocused (visibilitychange).
       if (++errorRetries > MAX_ERROR_RETRIES) {
-        setStatus("Stream unavailable.", true);
+        setStatus("Stream unavailable right now.", true);
         showLoader(false);
         return;
       }
 
-      setStatus("Reconnecting…");
+      setStatus("Reconnecting stream…");
       showLoader(true);
       retryTimer = setTimeout(() => {
         retryTimer = null;
