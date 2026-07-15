@@ -78,6 +78,33 @@
     font-size: 0.85rem;
     margin-top: 8px;
   }
+  /* Safari-only unmute affordance. WebKit refuses script-initiated unmute for an
+     embedded iframe off the parent's activation, so we need a real in-frame tap. */
+  #unmute-btn {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.62);
+    color: #fff;
+    font-family: sans-serif;
+    font-size: 0.8rem;
+    line-height: 1;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #unmute-btn.hidden { display: none; }
+  #unmute-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: #fff;
+  }
 </style>
 </head>
 <body>
@@ -91,6 +118,10 @@
   <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg>
   <span>Tap to play</span>
 </div>
+<button id="unmute-btn" class="hidden" type="button" aria-label="Tap for sound">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+  <span>Tap for sound</span>
+</button>
 
 <script>
 const WHEP_BASE_URL = "{{ $whepBaseUrl }}";
@@ -112,6 +143,18 @@ const statusEl = document.getElementById("status");
 const videoEl = document.getElementById("myvideo");
 const spinnerEl = document.getElementById("spinner");
 const tapOverlay = document.getElementById("tap-overlay");
+const unmuteBtn = document.getElementById("unmute-btn");
+
+// Safari/WebKit won't let an embedded iframe unmute via script off the parent's
+// activation (unlike Chrome), so auto-unmute silently fails there. Detect Safari
+// (desktop + iOS, incl. iOS WebKit wrappers) to surface a manual unmute button.
+const IS_SAFARI = (() => {
+  const ua = navigator.userAgent;
+  const isIOS = /iP(ad|hone|od)/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); // iPadOS
+  const isAppleWebKit = /AppleWebKit/.test(ua) && !/Chrome|Chromium|Android|Edg|OPR/.test(ua);
+  return isIOS || isAppleWebKit;
+})();
 
 const params = new URLSearchParams(window.location.search);
 const stream = params.get("stream");
@@ -159,6 +202,7 @@ videoEl.addEventListener("playing", () => {
   // overlay here too — don't rely solely on the play() promise in the click
   // handler, which can reject on iOS when auto-unmute's play() races it.
   tapOverlay.classList.add("hidden");
+  maybeShowUnmuteButton();
 });
 videoEl.addEventListener("waiting", () => showLoader(true));
 
@@ -167,6 +211,15 @@ tapOverlay.addEventListener("click", () => {
     .then(() => tapOverlay.classList.add("hidden"))
     .catch(() => {});
 });
+
+// Manual unmute button — only surfaced on Safari, where auto-unmute can't fire
+// for the embedded player. A tap here is a genuine in-frame gesture, which is
+// exactly what WebKit requires to permit sound.
+function maybeShowUnmuteButton() {
+  if (!IS_SAFARI || !muted || unmuted) return;
+  unmuteBtn.classList.remove("hidden");
+}
+unmuteBtn.addEventListener("click", () => doUnmute("button"));
 
 // --- Auto-unmute -----------------------------------------------------------
 // The player starts muted so it can autoplay. We flip it to sound at the first
@@ -218,6 +271,7 @@ function doUnmute(reason) {
   unmuted = true;
   videoEl.muted = false;
   videoEl.play().catch(() => {}); // no-op when already playing
+  unmuteBtn.classList.add("hidden");
   stopUnmuteWatchers();
   unmuteLog("unmuted via", reason);
 }
@@ -235,6 +289,7 @@ function probeUnmute() {
     if (unmuted) return;
     if (!videoEl.muted && !videoEl.paused) {
       unmuted = true;
+      unmuteBtn.classList.add("hidden");
       stopUnmuteWatchers();
       unmuteLog("unmuted via probe #" + unmuteProbes);
     } else {
