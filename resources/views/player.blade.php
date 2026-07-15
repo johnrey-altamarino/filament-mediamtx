@@ -162,6 +162,70 @@ tapOverlay.addEventListener("click", () => {
     .catch(() => {});
 });
 
+// --- Auto-unmute -----------------------------------------------------------
+// The player starts muted so it can autoplay. We flip to sound at the first sign
+// the browser will allow audible playback, once, then never touch mute again.
+//
+// Two independent triggers, because embeds differ:
+//   1. A pointer/key interaction that reaches THIS document — covers the
+//      standalone player and ordinary iframe embeds.
+//   2. The autoplay policy turning "allowed" — the only signal available when a
+//      host page lays a <canvas> over the iframe with `pointer-events: none`
+//      (e.g. our game HUD embeds), so no tap ever reaches us. Those pages set
+//      `allow="autoplay"` on the iframe, so once the viewer taps anywhere on the
+//      host page the top frame gains user activation and our delegated policy
+//      flips to "allowed".
+//
+// Reading getAutoplayPolicy has no side effects. We never blind-set muted=false
+// without permission: Chrome punishes that by PAUSING the video.
+let unmuted = false;
+let watchingUnmute = false;
+let policyPoll = null;
+
+function autoplayAllowsSound() {
+  if (typeof navigator.getAutoplayPolicy !== "function") return false;
+  try {
+    return navigator.getAutoplayPolicy("mediaelement") === "allowed";
+  } catch {
+    return false;
+  }
+}
+
+function stopUnmuteWatchers() {
+  if (policyPoll) { clearInterval(policyPoll); policyPoll = null; }
+  document.removeEventListener("pointerup", unmuteFromGesture);
+  document.removeEventListener("keydown", unmuteFromGesture);
+}
+
+function doUnmute() {
+  if (unmuted) return;
+  unmuted = true;
+  videoEl.muted = false;
+  videoEl.play().catch(() => {}); // no-op when already playing
+  stopUnmuteWatchers();
+}
+
+function unmuteFromGesture() { doUnmute(); }
+
+// Wired up once playback is live (see onTrack). Idempotent and no-op if the
+// player wasn't started muted (?muted=false), since there is nothing to unmute.
+function startAutoUnmute() {
+  if (!muted || unmuted || watchingUnmute) return;
+  watchingUnmute = true;
+
+  // Trigger 1: a real interaction inside this document.
+  document.addEventListener("pointerup", unmuteFromGesture, { once: true });
+  document.addEventListener("keydown", unmuteFromGesture, { once: true });
+
+  // Trigger 2: poll the autoplay policy for the canvas-overlay embed case.
+  if (typeof navigator.getAutoplayPolicy === "function") {
+    if (autoplayAllowsSound()) { doUnmute(); return; }
+    policyPoll = setInterval(() => {
+      if (autoplayAllowsSound()) doUnmute();
+    }, 750);
+  }
+}
+
 async function fetchToken() {
   for (let attempt = 0; attempt < 3; attempt++) {
     if (tearingDown) throw new DOMException("torn down", "AbortError");
@@ -271,6 +335,7 @@ async function initPlayer() {
       setStatus("");
       retryDelay = 2000;
       errorRetries = 0;
+      startAutoUnmute();
     },
   });
 
@@ -294,6 +359,7 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("DOMContentLoaded", initPlayer);
 function teardown() {
   tearingDown = true;
+  stopUnmuteWatchers();
   clearWatchdog();
   if (retryTimer) clearTimeout(retryTimer);
   if (refreshTimer) clearTimeout(refreshTimer);

@@ -90,6 +90,9 @@ throttled by a cache lock (`VIEWER_LOG_THROTTLE_SECONDS`, default 10 s; fingerpr
 - **Iframe embedding protection** — controls which origins may embed the player.
 - **Direct playback** option — `PlayerSettings` controls whether playback starts automatically; `ReadTokenController`
   respects this.
+- **Auto‑unmute on interaction** — the player starts muted (so it can autoplay), then unmutes once on the viewer's
+  first interaction. It handles even canvas‑overlay embeds where taps never reach the iframe, by watching the delegated
+  autoplay policy (`allow="autoplay"` + top‑page gesture). See [docs/player-auto-unmute.md](docs/player-auto-unmute.md).
 
 The player fetches a short‑lived read token from `POST /api/read` and connects to MediaMTX over WebRTC
 (`MEDIAMTX_STREAM_BASE_URL`).
