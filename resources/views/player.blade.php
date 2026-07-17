@@ -427,8 +427,13 @@ async function fetchToken() {
         signal: tokenAbort.signal,
       });
 
-      // Retry on server errors only
-      if (res.status >= 500 && attempt < 2) continue;
+      // Retry on server errors, and on 422: for this endpoint that only ever means
+      // the path was rejected as empty/invalid server-side (see ReadTokenController),
+      // which can happen transiently (e.g. a proxy mangling the POST body on a
+      // lazy-loaded iframe's first request). Real auth denials come back as 403 and
+      // are not retried below.
+      const retryable = res.status >= 500 || res.status === 422;
+      if (retryable && attempt < 2) continue;
       if (!res.ok) throw new Error(`Token request denied (${res.status})`);
 
       const data = await res.json();
