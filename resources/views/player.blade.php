@@ -88,20 +88,72 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: rgba(0,0,0,0.45);
+    gap: 18px;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.62) 100%);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    animation: overlay-in 0.35s ease both;
   }
   #tap-overlay.hidden { display: none; }
+  #tap-overlay .play-ring {
+    position: relative;
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.35);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    transition: transform 0.2s ease, background 0.2s ease;
+  }
+  /* Halo that breathes outward to draw the eye to the tap target. */
+  #tap-overlay .play-ring::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.5);
+    animation: halo 2.2s ease-out infinite;
+  }
+  #tap-overlay:hover .play-ring {
+    transform: scale(1.06);
+    background: rgba(255,255,255,0.18);
+  }
+  #tap-overlay:active .play-ring { transform: scale(0.96); }
   #tap-overlay svg {
-    width: 60px;
-    height: 60px;
-    fill: rgba(255,255,255,0.85);
+    width: 34px;
+    height: 34px;
+    fill: #fff;
+    /* Optical centering: the triangle's mass sits left of the glyph box. */
+    margin-left: 4px;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
   }
   #tap-overlay span {
-    color: rgba(255,255,255,0.65);
-    font-family: sans-serif;
-    font-size: 0.85rem;
-    margin-top: 8px;
+    color: rgba(255,255,255,0.9);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+  @keyframes overlay-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes halo {
+    0%        { transform: scale(1);    opacity: 0.7; }
+    70%, 100% { transform: scale(1.45); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #tap-overlay { animation: none; }
+    #tap-overlay .play-ring::before { animation: none; opacity: 0; }
   }
   /* Safari-only unmute affordance. WebKit refuses script-initiated unmute for an
      embedded iframe off the parent's activation, so we need a real in-frame tap. */
@@ -143,7 +195,9 @@
     <div id="status"></div>
   </div>
   <div id="tap-overlay" class="hidden">
-    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg>
+    <div class="play-ring">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg>
+    </div>
     <span>Tap to play</span>
   </div>
   <button id="unmute-btn" class="hidden" type="button" aria-label="Tap for sound">
