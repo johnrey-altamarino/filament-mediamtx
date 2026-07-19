@@ -242,19 +242,20 @@ Replace with:
 
 - [ ] **Step 4: Manually verify in a real browser**
 
-This script has no PHPUnit/JS test harness (spec: "Testing" — verification is manual). On macOS,
-launch Chrome with a forced locale so `navigator.language` actually reports Korean:
+This script has no PHPUnit/JS test harness (spec: "Testing" — verification is manual). Chrome's
+`--lang` launch flag does **not** reliably change `navigator.language` on macOS (confirmed —
+see [[macos-chrome-lang-flag-unreliable]] memory), so force a Korean locale via
+`chrome://settings/languages` instead: add 한국어 (Korean) and drag it to the top of the list, then
+reload. That reordering is what actually changes `navigator.language`/`navigator.languages`.
 
-```bash
-open -na "Google Chrome" --args --lang=ko --new-window "http://filament-mediamtx.test/play?stream=<a-real-or-test-stream-path>"
-```
+Load `http://filament-mediamtx.test/play?stream=<a-real-or-test-stream-path>`.
 
 Expected: the loader shows "스트림 불러오는 중…" while connecting. If no stream is live, it should
 eventually show "현재 스트림을 사용할 수 없습니다." after retries exhaust. Load the same URL in a
-normal (non-`--lang=ko`) Chrome window and confirm it still shows the English text ("Loading
-stream…" / "Stream unavailable right now."). Also load `http://filament-mediamtx.test/play` (no
-`?stream=`) in both language modes and confirm the missing-parameter message is localized
-correctly in each.
+move English back to the top of `chrome://settings/languages` and reload to confirm it goes back to
+English text ("Loading stream…" / "Stream unavailable right now."). Also load
+`http://filament-mediamtx.test/play` (no `?stream=`) in both language orderings and confirm the
+missing-parameter message is localized correctly in each.
 
 If a stream is live, also confirm the tap-to-play overlay (if autoplay is blocked) or the
 Safari-only unmute button reads the localized label — Safari's unmute button specifically requires
@@ -390,7 +391,7 @@ function reasonFor(err) {
 - [ ] **Step 5: Manually verify both classified paths render correctly**
 
 No automated harness covers this path either. Force each failure mode and confirm the localized
-text using the same `--lang=ko` / normal Chrome comparison as Task 2 Step 4:
+text using the same `chrome://settings/languages` reordering trick as Task 2 Step 4:
 
 1. **`TOKEN_DENIED`**: temporarily block your own IP in the `blocked_ips` table (or add a
    non-matching `allowed_referrers` rule) so `POST /api/read` returns 403, then load `/play?stream=<path>`.
@@ -453,13 +454,14 @@ other views are untouched.
 
 ## Verify
 
-Launch a Chromium browser with a forced Korean locale and compare against a normal window:
+Chrome's `--lang` launch flag does **not** reliably change `navigator.language` on macOS. Instead,
+in `chrome://settings/languages`, add 한국어 (Korean) and drag it to the top of the list, then
+reload the player page — that reordering is what actually drives `navigator.language`. Move English
+back to the top afterward to revert.
 
-    open -na "Google Chrome" --args --lang=ko --new-window "https://your-host/play?stream=<path>"
-
-Confirm the loader/status/error text renders in Korean in that window and in English in a normal
-window, for: normal load, missing `?stream=`, a forced 403 (blocked IP or rejected referrer), and
-a forced network-level failure.
+Confirm the loader/status/error text renders in Korean with Korean at the top of that list, and in
+English with English at the top, for: normal load, missing `?stream=`, a forced 403 (blocked IP or
+rejected referrer), and a forced network-level failure.
 
 ## Deploy
 
