@@ -309,6 +309,15 @@ function setStatus(msg, isError = false) {
   statusEl.textContent = msg;
   statusEl.classList.toggle("error", isError);
 }
+
+// err.code is set for the two deliberate failure modes in fetchToken(); anything
+// uncoded (e.g. a browser-native network error) gets a generic translated reason
+// instead of leaking untranslated raw error text to the viewer.
+function reasonFor(err) {
+  if (err.code === "TOKEN_DENIED") return t("reasonTokenDenied", { status: err.status });
+  if (err.code === "NO_TOKEN") return t("reasonNoToken");
+  return t("reasonGeneric");
+}
 function showLoader(v) { spinnerEl.classList.toggle("hidden", !v); }
 
 function startWatchdog() {
@@ -475,10 +484,19 @@ async function fetchToken() {
       // are not retried below.
       const retryable = res.status >= 500 || res.status === 422;
       if (retryable && attempt < 2) continue;
-      if (!res.ok) throw new Error(`Token request denied (${res.status})`);
+      if (!res.ok) {
+        const err = new Error(`Token request denied (${res.status})`);
+        err.code = "TOKEN_DENIED";
+        err.status = res.status;
+        throw err;
+      }
 
       const data = await res.json();
-      if (!data.token) throw new Error("JWT not received");
+      if (!data.token) {
+        const err = new Error("JWT not received");
+        err.code = "NO_TOKEN";
+        throw err;
+      }
 
       token = data.token;
 
@@ -496,7 +514,7 @@ async function fetchToken() {
       // Page/iframe is going away — stop cleanly, don't retry.
       if (err.name === "AbortError") throw err;
       // Don't retry auth denials
-      if (err.message.startsWith("Token request denied") || attempt === 2) throw err;
+      if (err.code === "TOKEN_DENIED" || attempt === 2) throw err;
     }
   }
 }
@@ -515,7 +533,7 @@ async function initPlayer() {
     await tokenPromise;
   } catch (err) {
     clearWatchdog();
-    setStatus(`Couldn't load stream: ${err.message}`, true);
+    setStatus(t("loadErrorPrefix") + reasonFor(err), true);
     showLoader(false);
     starting = false;
     return;
