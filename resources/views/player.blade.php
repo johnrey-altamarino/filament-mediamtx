@@ -210,10 +210,19 @@
 const WHEP_BASE_URL = "{{ $whepBaseUrl }}";
 const EMBED_SOURCE = @json($embedSource);
 
-// Viewer-facing text is localized to Korean when the browser reports a Korean
-// language; anything else (including no signal at all) falls back to English.
-const LANG = (navigator.languages || [navigator.language || ""])
-  .some((l) => l.toLowerCase().startsWith("ko")) ? "ko" : "en";
+// Language priority:
+//   1. An explicit ?lang= from the embedding page. This is the only signal that
+//      survives a cross-origin iframe — a host page's own <html lang> can't be
+//      read across origins, so a Korean-content site passes ?lang=ko in the src.
+//   2. The viewer's own browser language (navigator.languages).
+//   3. English.
+const LANG = (() => {
+  const requested = new URLSearchParams(location.search).get("lang");
+  const candidates = requested
+    ? [requested]
+    : (navigator.languages || [navigator.language || ""]);
+  return candidates.some((l) => l && l.toLowerCase().startsWith("ko")) ? "ko" : "en";
+})();
 
 const MESSAGES = {
   en: {
