@@ -210,6 +210,43 @@
 const WHEP_BASE_URL = "{{ $whepBaseUrl }}";
 const EMBED_SOURCE = @json($embedSource);
 
+// Viewer-facing text is localized to Korean when the browser reports a Korean
+// language; anything else (including no signal at all) falls back to English.
+const LANG = (navigator.languages || [navigator.language || ""])
+  .some((l) => l.toLowerCase().startsWith("ko")) ? "ko" : "en";
+
+const MESSAGES = {
+  en: {
+    loading: "Loading stream…",
+    reconnecting: "Reconnecting stream…",
+    unavailable: "Stream unavailable right now.",
+    loadErrorPrefix: "Couldn't load stream: ",
+    reasonTokenDenied: "access denied ({status})",
+    reasonNoToken: "no token received",
+    reasonGeneric: "connection error",
+    missingStreamParam: "Missing required ?stream= parameter.",
+    tapToPlay: "Tap to play",
+    tapForSound: "Tap for sound",
+  },
+  ko: {
+    loading: "스트림 불러오는 중…",
+    reconnecting: "스트림 재연결 중…",
+    unavailable: "현재 스트림을 사용할 수 없습니다.",
+    loadErrorPrefix: "스트림을 불러올 수 없습니다: ",
+    reasonTokenDenied: "접근이 거부되었습니다 ({status})",
+    reasonNoToken: "토큰을 받지 못했습니다",
+    reasonGeneric: "연결 오류",
+    missingStreamParam: "필수 매개변수 ?stream= 이(가) 누락되었습니다.",
+    tapToPlay: "탭하여 재생",
+    tapForSound: "탭하여 소리 켜기",
+  },
+};
+
+function t(key, vars) {
+  const str = (MESSAGES[LANG] && MESSAGES[LANG][key]) || MESSAGES.en[key] || key;
+  return vars ? str.replace(/\{(\w+)\}/g, (_, k) => vars[k]) : str;
+}
+
 let reader = null;
 let token = null;
 let retryDelay = 2000;
