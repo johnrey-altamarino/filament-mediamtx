@@ -18,3 +18,11 @@ Route::get('/monitor/play', MonitorPlayerController::class)
 Route::get('/monitor', MultistreamMonitor::class)
     ->middleware('auth')
     ->name('monitor');
+
+// TEMPORARY: public iframe test for validating an iframe access guard on another
+// project. No middleware/auth by design. Remove when testing is finished.
+Route::get('/iframe', function () {
+    return view('iframe', [
+        'src' => 'https://cg-iframe.dotara.dev/color-game/1/webrtc',
+    ]);
+})->name('iframe.test');
