@@ -94,11 +94,12 @@ terminal branch (~line 207), when the underlying HTTP status was specifically `4
 overlay instead of routing through the existing `showFatal()` box. `showFatal()` itself is
 untouched and keeps handling its other jobs (unsupported browser, missing `MOQ_BASE_URL` config).
 
-To detect the specific status inside `moq-player.blade.php`'s `fetchToken()`, the thrown error
-needs to carry the raw status (it currently only sets a boolean `err.terminal`); add
-`err.status = res.status` alongside the existing `err.terminal` assignment so the `onError`
-handler can check `status === 403` without changing the existing terminal/retry behavior for
-other 4xx codes.
+To detect the specific status inside `moq-player.blade.php`'s `onError`, note that the vendored
+reader passes only `err.message` (a string) to the callback — the raw status is lost. Rather than
+widen the fork's callback signature (`resources/js/moq-reader.js` is deliberately kept minimal for
+cheap upstream re-sync), record the denial status in a module-scoped variable inside
+`fetchToken()` when `!res.ok`, and read it in the `onError` terminal branch. **The vendored
+reader is not modified.**
 
 ---
 
