@@ -8,6 +8,7 @@ use App\Models\PlayerSetting;
 use App\Services\ClientIpResolver;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class PlayerAccessMiddleware
 {
@@ -31,12 +32,12 @@ class PlayerAccessMiddleware
         if ($mode === 'whitelist') {
             // 0.0.0.0 means allow all
             if (! in_array('0.0.0.0', $ipRules, true) && ! in_array($ip, $ipRules, true)) {
-                abort(403);
+                return $this->deny();
             }
         } else {
             // blacklist mode: block listed IPs, allow all others
             if (in_array($ip, $ipRules, true)) {
-                abort(403);
+                return $this->deny();
             }
         }
 
@@ -60,7 +61,7 @@ class PlayerAccessMiddleware
             if ($source !== '' && ! str_starts_with($source, $appUrl)) {
                 $allowed = $referrers->contains(fn ($rule) => $rule->matches($source));
                 if (! $allowed) {
-                    abort(403);
+                    return $this->deny();
                 }
             }
         }
@@ -84,5 +85,10 @@ class PlayerAccessMiddleware
         );
 
         return $response;
+    }
+
+    private function deny(): Response
+    {
+        return response()->view('errors.stream-unavailable', [], 403);
     }
 }

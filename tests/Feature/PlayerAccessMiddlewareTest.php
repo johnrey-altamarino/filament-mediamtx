@@ -88,4 +88,25 @@ class PlayerAccessMiddlewareTest extends TestCase
 
         $response->assertStatus(403);
     }
+
+    public function test_blocked_ip_renders_branded_error_page(): void
+    {
+        PlayerIpRule::create(['ip' => '1.2.3.4']);
+
+        $response = $this->get('/play', ['REMOTE_ADDR' => '1.2.3.4']);
+
+        $response->assertStatus(403);
+        $response->assertSee('Stream unavailable');
+        $response->assertSee("This video isn't available here.", escape: false);
+    }
+
+    public function test_whitelist_rejection_renders_branded_error_page(): void
+    {
+        PlayerSetting::where('key', 'ip_mode')->update(['value' => 'whitelist']);
+
+        $response = $this->get('/play', ['REMOTE_ADDR' => '9.9.9.9']);
+
+        $response->assertStatus(403);
+        $response->assertSee('Stream unavailable');
+    }
 }
