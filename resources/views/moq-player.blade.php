@@ -95,6 +95,8 @@
 <button id="mute" type="button">🔇 Unmute</button>
 <div id="unsupported" class="hidden"></div>
 
+@include('partials.stream-unavailable', ['hidden' => true])
+
 <script>
 const MOQ_BASE_URL = "{{ $moqBaseUrl }}";
 const EMBED_SOURCE = @json($embedSource);
@@ -104,6 +106,7 @@ const spinnerEl = document.getElementById("spinner");
 const muteEl = document.getElementById("mute");
 const videoEl = document.getElementById("video");
 const unsupportedEl = document.getElementById("unsupported");
+const ineligibleEl = document.getElementById("stream-unavailable");
 
 const params = new URLSearchParams(window.location.search);
 const stream = params.get("stream");
@@ -125,6 +128,13 @@ function showFatal(html) {
   document.getElementById("loader").classList.add("hidden");
   unsupportedEl.classList.remove("hidden");
   unsupportedEl.innerHTML = html;
+}
+
+// The gate denied this viewer (403 from /api/read). Terminal — no retry.
+function showIneligible() {
+  document.getElementById("loader").classList.add("hidden");
+  muteEl.classList.remove("visible");
+  ineligibleEl.classList.remove("hidden");
 }
 
 if (!stream) {
@@ -152,6 +162,9 @@ if (!MOQ_BASE_URL) {
 
 let tokenAbort = null;
 let tearingDown = false;
+// The reader's onError callback only receives err.message, so stash the HTTP
+// status here to tell an eligibility denial (403) from other terminal failures.
+let deniedStatus = null;
 
 // Fetch a fresh read JWT. The reader calls this via `tokenProvider` before each (re)connect,
 // so a stream that reconnects after the short JWT TTL still authorizes. Mirrors /play's gate:
@@ -172,6 +185,7 @@ async function fetchToken() {
       });
       if (res.status >= 500 && attempt < 2) continue;
       if (!res.ok) {
+        deniedStatus = res.status;
         const err = new Error(`Access denied (${res.status})`);
         // 4xx (except 429 rate-limit) is a permanent denial from the gate: mark
         // terminal so the reader stops instead of re-POSTing /api/read forever.
@@ -206,8 +220,13 @@ function startPlayer() {
     videoElement: videoEl,
     onError: (msg, terminal) => {
       if (terminal) {
-        // The reader has stopped (e.g. access denied); show the reason, no spinner.
-        showFatal(msg);
+        // The reader has stopped. A 403 is an eligibility denial — show the branded
+        // screen; anything else keeps the plain-text fatal box.
+        if (deniedStatus === 403) {
+          showIneligible();
+        } else {
+          showFatal(msg);
+        }
       } else {
         // Transient failure — the reader auto-retries; keep the viewer-facing copy generic.
         setStatus("Reconnecting…", true);
