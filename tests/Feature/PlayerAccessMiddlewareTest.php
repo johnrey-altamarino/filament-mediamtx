@@ -109,4 +109,20 @@ class PlayerAccessMiddlewareTest extends TestCase
         $response->assertStatus(403);
         $response->assertSee('Stream unavailable');
     }
+
+    // ── Embed / referrer gate ─────────────────────────────────────────
+
+    public function test_disallowed_embed_origin_renders_branded_error_page(): void
+    {
+        // IP gate passes (blacklist mode, no rules), so this exercises the embed
+        // gate specifically. No AllowedReferrer rows exist in the test DB, so any
+        // cross-origin iframe embed is rejected.
+        $response = $this->get('/play', [
+            'HTTP_SEC_FETCH_DEST' => 'iframe',
+            'HTTP_ORIGIN' => 'https://evil.test',
+        ]);
+
+        $response->assertStatus(403);
+        $response->assertSee('Stream unavailable');
+    }
 }

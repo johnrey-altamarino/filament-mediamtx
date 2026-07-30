@@ -14,6 +14,15 @@ class PlayerAccessMiddleware
 {
     public function handle(Request $request, Closure $next): mixed
     {
+        // Loaded up front (not just for the pass-through path) so every 403 this
+        // middleware returns carries the same CSP frame-ancestors header as a
+        // successful response — the header must not distinguish which gate fired.
+        $referrers = cache()->remember(
+            'allowed_referrers',
+            30,
+            fn () => AllowedReferrer::query()->where('is_enabled', true)->get()
+        );
+
         // ── IP gate ───────────────────────────────────────────────────────────
         $mode = cache()->remember(
             'player_settings',
@@ -32,22 +41,16 @@ class PlayerAccessMiddleware
         if ($mode === 'whitelist') {
             // 0.0.0.0 means allow all
             if (! in_array('0.0.0.0', $ipRules, true) && ! in_array($ip, $ipRules, true)) {
-                return $this->deny();
+                return $this->deny($referrers);
             }
         } else {
             // blacklist mode: block listed IPs, allow all others
             if (in_array($ip, $ipRules, true)) {
-                return $this->deny();
+                return $this->deny($referrers);
             }
         }
 
         // ── Referrer / embedding gate ─────────────────────────────────────────
-        $referrers = cache()->remember(
-            'allowed_referrers',
-            30,
-            fn () => AllowedReferrer::query()->where('is_enabled', true)->get()
-        );
-
         // Only enforce when the browser signals this is an iframe embed.
         // Sec-Fetch-Dest: iframe is sent by all modern browsers for framed loads;
         // direct navigation sends "document", so legitimate direct access is unaffected.
@@ -61,7 +64,7 @@ class PlayerAccessMiddleware
             if ($source !== '' && ! str_starts_with($source, $appUrl)) {
                 $allowed = $referrers->contains(fn ($rule) => $rule->matches($source));
                 if (! $allowed) {
-                    return $this->deny();
+                    return $this->deny($referrers);
                 }
             }
         }
@@ -69,9 +72,33 @@ class PlayerAccessMiddleware
         // ── Pass through + set CSP frame-ancestors ────────────────────────────
         $response = $next($request);
 
-        // Build the allowed-origins list from non-regex referrer patterns.
-        // Regex patterns cannot be represented as CSP host-sources, so they are
-        // excluded (server-side check above still covers them).
+        $response->headers->set(
+            'Content-Security-Policy',
+            $this->frameAncestorsHeader($referrers)
+        );
+
+        return $response;
+    }
+
+    private function deny(iterable $referrers): Response
+    {
+        $response = response()->view('errors.stream-unavailable', [], 403);
+
+        $response->headers->set(
+            'Content-Security-Policy',
+            $this->frameAncestorsHeader($referrers)
+        );
+
+        return $response;
+    }
+
+    /**
+     * Build the allowed-origins list from non-regex referrer patterns.
+     * Regex patterns cannot be represented as CSP host-sources, so they are
+     * excluded (the server-side check elsewhere in this middleware still covers them).
+     */
+    private function frameAncestorsHeader(iterable $referrers): string
+    {
         $frameAncestors = ["'self'"];
         foreach ($referrers as $rule) {
             if (! $rule->is_regex) {
@@ -79,16 +106,6 @@ class PlayerAccessMiddleware
             }
         }
 
-        $response->headers->set(
-            'Content-Security-Policy',
-            'frame-ancestors '.implode(' ', $frameAncestors)
-        );
-
-        return $response;
-    }
-
-    private function deny(): Response
-    {
-        return response()->view('errors.stream-unavailable', [], 403);
+        return 'frame-ancestors '.implode(' ', $frameAncestors);
     }
 }

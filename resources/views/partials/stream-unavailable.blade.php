@@ -1,7 +1,7 @@
 {{-- Shown to viewers who are not eligible to watch (blocked IP, disallowed embed
      origin, direct playback off). The copy is deliberately identical for every
      cause so it never reveals which gate rejected the request. --}}
-<div id="stream-unavailable" class="stream-unavailable{{ ($hidden ?? false) ? ' hidden' : '' }}">
+<div id="stream-unavailable" class="stream-unavailable{{ ($hidden ?? false) ? ' hidden' : '' }}" role="alert">
     <svg class="su-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" stroke-width="1.4" />
         <path d="M9.6 8.5v7l5.4-3.5z" fill="currentColor" />
