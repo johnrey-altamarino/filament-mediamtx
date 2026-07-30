@@ -22,7 +22,8 @@ class MoqPlayerControllerTest extends TestCase
         $this->withoutMiddleware(PlayerAccessMiddleware::class)
             ->withoutVite()
             ->get('/moq?stream=live/a')
-            ->assertStatus(403);
+            ->assertStatus(403)
+            ->assertSee('Stream unavailable');
     }
 
     public function test_moq_route_returns_200_when_direct_allowed(): void

@@ -90,6 +90,9 @@ throttled by a cache lock (`VIEWER_LOG_THROTTLE_SECONDS`, default 10 s; fingerpr
 - **Iframe embedding protection** — controls which origins may embed the player.
 - **Direct playback** option — `PlayerSettings` controls whether playback starts automatically; `ReadTokenController`
   respects this.
+- **Branded rejection screen** — viewers rejected by any gate (blocked IP, disallowed embed origin, direct playback
+  off) get a single "Stream unavailable" page instead of a stock 403, both on page load and when the read token is
+  denied mid‑session. See [docs/stream-unavailable-error-page.md](docs/stream-unavailable-error-page.md).
 - **Auto‑unmute on interaction** — the player starts muted (so it can autoplay), then unmutes once on the viewer's
   first interaction. It handles even canvas‑overlay embeds where taps never reach the iframe, by watching the delegated
   autoplay policy (`allow="autoplay"` + top‑page gesture). See [docs/player-auto-unmute.md](docs/player-auto-unmute.md).

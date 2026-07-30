@@ -206,6 +206,8 @@
   </button>
 </div>
 
+@include('partials.stream-unavailable', ['hidden' => true])
+
 <script>
 const WHEP_BASE_URL = "{{ $whepBaseUrl }}";
 const EMBED_SOURCE = @json($embedSource);
@@ -228,6 +230,7 @@ const bgVideoEl = document.getElementById("bg-video");
 const spinnerEl = document.getElementById("spinner");
 const tapOverlay = document.getElementById("tap-overlay");
 const unmuteBtn = document.getElementById("unmute-btn");
+const ineligibleEl = document.getElementById("stream-unavailable");
 
 // Safari/WebKit won't let an embedded iframe unmute via script off the parent's
 // activation (unlike Chrome), so auto-unmute silently fails there. Detect Safari
@@ -269,6 +272,20 @@ function setStatus(msg, isError = false) {
   statusEl.classList.toggle("error", isError);
 }
 function showLoader(v) { spinnerEl.classList.toggle("hidden", !v); }
+
+// The gate denied this viewer (403 from /api/read). Terminal — no retry.
+let ineligible = false;
+function showIneligible() {
+  ineligible = true;
+  if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
+  if (retryTimer)   { clearTimeout(retryTimer);   retryTimer = null; }
+  stopUnmuteWatchers();
+  setStatus("");
+  showLoader(false);
+  tapOverlay.classList.add("hidden");
+  unmuteBtn.classList.add("hidden");
+  ineligibleEl.classList.remove("hidden");
+}
 
 function startWatchdog() {
   clearWatchdog();
@@ -434,7 +451,11 @@ async function fetchToken() {
       // are not retried below.
       const retryable = res.status >= 500 || res.status === 422;
       if (retryable && attempt < 2) continue;
-      if (!res.ok) throw new Error(`Token request denied (${res.status})`);
+      if (!res.ok) {
+        const err = new Error(`Token request denied (${res.status})`);
+        err.status = res.status;
+        throw err;
+      }
 
       const data = await res.json();
       if (!data.token) throw new Error("JWT not received");
@@ -446,7 +467,13 @@ async function fetchToken() {
         const msUntilRefresh = data.expires_at * 1000 - Date.now() - 10_000;
         if (msUntilRefresh > 0) {
           refreshTimer = setTimeout(async () => {
-            try { tokenPromise = fetchToken(); await tokenPromise; } catch (err) { console.error("Token refresh failed:", err); }
+            try {
+              tokenPromise = fetchToken();
+              await tokenPromise;
+            } catch (err) {
+              console.error("Token refresh failed:", err);
+              if (err.status === 403) showIneligible();
+            }
           }, msUntilRefresh);
         }
       }
@@ -454,8 +481,9 @@ async function fetchToken() {
     } catch (err) {
       // Page/iframe is going away — stop cleanly, don't retry.
       if (err.name === "AbortError") throw err;
-      // Don't retry auth denials
-      if (err.message.startsWith("Token request denied") || attempt === 2) throw err;
+      // Don't retry auth denials (err.status is set for any non-ok, non-retryable
+      // response above — a definitive denial from the endpoint).
+      if (err.status !== undefined || attempt === 2) throw err;
     }
   }
 }
@@ -474,9 +502,13 @@ async function initPlayer() {
     await tokenPromise;
   } catch (err) {
     clearWatchdog();
+    starting = false;
+    if (err.status === 403) {
+      showIneligible();
+      return;
+    }
     setStatus(`Couldn't load stream: ${err.message}`, true);
     showLoader(false);
-    starting = false;
     return;
   }
 
@@ -540,6 +572,7 @@ async function initPlayer() {
 
 // Reconnect immediately when tab becomes visible if stream is not active
 document.addEventListener("visibilitychange", () => {
+  if (ineligible) return;
   if (document.visibilityState === "visible" && (!reader || videoEl.paused || videoEl.readyState < 2)) {
     if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
     clearWatchdog();
