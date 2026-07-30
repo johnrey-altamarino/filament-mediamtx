@@ -206,6 +206,8 @@
   </button>
 </div>
 
+@include('partials.stream-unavailable', ['hidden' => true])
+
 <script>
 const WHEP_BASE_URL = "{{ $whepBaseUrl }}";
 const EMBED_SOURCE = @json($embedSource);
@@ -228,6 +230,7 @@ const bgVideoEl = document.getElementById("bg-video");
 const spinnerEl = document.getElementById("spinner");
 const tapOverlay = document.getElementById("tap-overlay");
 const unmuteBtn = document.getElementById("unmute-btn");
+const ineligibleEl = document.getElementById("stream-unavailable");
 
 // Safari/WebKit won't let an embedded iframe unmute via script off the parent's
 // activation (unlike Chrome), so auto-unmute silently fails there. Detect Safari
@@ -269,6 +272,17 @@ function setStatus(msg, isError = false) {
   statusEl.classList.toggle("error", isError);
 }
 function showLoader(v) { spinnerEl.classList.toggle("hidden", !v); }
+
+// The gate denied this viewer (403 from /api/read). Terminal — no retry.
+let ineligible = false;
+function showIneligible() {
+  ineligible = true;
+  setStatus("");
+  showLoader(false);
+  tapOverlay.classList.add("hidden");
+  unmuteBtn.classList.add("hidden");
+  ineligibleEl.classList.remove("hidden");
+}
 
 function startWatchdog() {
   clearWatchdog();
@@ -474,9 +488,13 @@ async function initPlayer() {
     await tokenPromise;
   } catch (err) {
     clearWatchdog();
+    starting = false;
+    if (err.message === "Token request denied (403)") {
+      showIneligible();
+      return;
+    }
     setStatus(`Couldn't load stream: ${err.message}`, true);
     showLoader(false);
-    starting = false;
     return;
   }
 
@@ -540,6 +558,7 @@ async function initPlayer() {
 
 // Reconnect immediately when tab becomes visible if stream is not active
 document.addEventListener("visibilitychange", () => {
+  if (ineligible) return;
   if (document.visibilityState === "visible" && (!reader || videoEl.paused || videoEl.readyState < 2)) {
     if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
     clearWatchdog();
