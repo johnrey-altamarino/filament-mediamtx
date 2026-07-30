@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\PlayerSetting;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
 
 class PlayerController extends Controller
 {
-    public function __invoke(Request $request): View
+    public function __invoke(Request $request): View|Response
     {
         $isEmbed = $request->headers->get('sec-fetch-dest') === 'iframe';
 
@@ -31,7 +32,7 @@ class PlayerController extends Controller
         }
 
         if (! $isEmbed && ! $directAllowed) {
-            abort(403);
+            return response()->view('errors.stream-unavailable', [], 403);
         }
 
         return view('player', [
