@@ -59,7 +59,7 @@ The core purpose of this app is acting as a **JWT authorization server** for Med
   (paths set via `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH`). The private key is cached as a singleton to avoid
   per‑request disk reads.
 - **JWKS endpoint** at `GET /.well-known/jwks.json` — MediaMTX polls this (once) to fetch the public key used to verify
-  JWTs. Protected by the `AllowMediamtxOnly` middleware (IP allowlist via `MEDIAMTX_ALLOWED_IPS`); the response is cached.
+  JWTs. Public (no IP allowlist — it only exposes the public key); the response is cached.
 - **Publish tokens** — long‑lived JWTs issued by `MediamtxJwtIssuer`, stored in the DB, copied into stream encoders.
   Managed via `PublishTokenResource` (copy / rotate actions).
 - **Read tokens** — short‑lived JWTs (`JWT_TTL_SECONDS`, default 60 s) issued by `POST /api/read`, called by embedded
@@ -197,7 +197,7 @@ Access gates are inline `visible()` / `canAccess()` / `canViewAny()` callbacks o
 
 | Method | Path | Handler | Protection |
 |---|---|---|---|
-| GET | `/.well-known/jwks.json` | `JwksController` | `jwks.ip` (`AllowMediamtxOnly`) |
+| GET | `/.well-known/jwks.json` | `JwksController` | Public |
 | GET | `/play` | `PlayerController` | `player.access` (`PlayerAccessMiddleware`) |
 | GET | `/moq` | `MoqPlayerController` | `player.access` (`PlayerAccessMiddleware`) |
 | POST | `/api/read` | `ReadTokenController` | `throttle:token-read` |
@@ -224,7 +224,6 @@ MEDIAMTX_API_TIMEOUT=10                            # HTTP timeout (seconds)
 MEDIAMTX_SESSION_STALE_SECONDS=20                  # Drop sessions not seen within this window
 MEDIAMTX_STREAM_BASE_URL=https://stream.example.com# WebRTC base URL used by the /play player
 MEDIAMTX_MOQ_BASE_URL=https://origin.example.com:8892 # MoQ/WebTransport endpoint for the /moq player (hostname + UDP port)
-MEDIAMTX_ALLOWED_IPS=127.0.0.1,::1                 # IPs allowed to hit /.well-known/jwks.json
 MEDIAMTX_TRUSTED_PROXIES=...                        # Proxy IPs/CIDRs whose forwarding headers are trusted (CF ranges, or "*")
 
 # Viewer request logging
@@ -394,7 +393,6 @@ REDIS_PORT=6379
 # JWT / MediaMTX / Telegram — see the Environment variables section above
 JWT_ISSUER=https://platform.example.com
 MEDIAMTX_API_BASE_URL=http://127.0.0.1:9997
-MEDIAMTX_ALLOWED_IPS=127.0.0.1,::1
 MEDIAMTX_STREAM_BASE_URL=https://stream.example.com
 TELEGRAM_ALERTS_ENABLED=true
 TELEGRAM_BOT_TOKEN=...
@@ -549,13 +547,12 @@ pathDefaults:
 A full reference config is in [`mediamtx.yml.example`](mediamtx.yml.example), and the hook setup is documented in
 [`docs/mediamtx-hooks.md`](docs/mediamtx-hooks.md). Restart MediaMTX after editing.
 
-> Set `MEDIAMTX_ALLOWED_IPS` to the IP MediaMTX uses to reach the JWKS endpoint, and put MediaMTX's edge/proxy ranges in
-> `MEDIAMTX_TRUSTED_PROXIES` so client IPs resolve correctly.
+> Put MediaMTX's edge/proxy ranges in `MEDIAMTX_TRUSTED_PROXIES` so client IPs resolve correctly.
 
 ### 16. Smoke test
 
 ```bash
-curl -s https://platform.example.com/.well-known/jwks.json   # JWKS (from an allowed IP)
+curl -s https://platform.example.com/.well-known/jwks.json   # JWKS (public)
 # Log in at https://platform.example.com → change the admin password
 # Publish a test stream, open /play, confirm a Telegram alert fires
 ```

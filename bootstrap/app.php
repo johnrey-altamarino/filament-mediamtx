@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\AllowMediamtxOnly;
 use App\Http\Middleware\PlayerAccessMiddleware;
 use App\Http\Middleware\VerifyMediamtxWebhook;
 use Illuminate\Foundation\Application;
@@ -34,7 +33,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo('/login');
 
         $middleware->alias([
-            'jwks.ip' => AllowMediamtxOnly::class,
             'player.access' => PlayerAccessMiddleware::class,
             'mediamtx.webhook' => VerifyMediamtxWebhook::class,
         ]);

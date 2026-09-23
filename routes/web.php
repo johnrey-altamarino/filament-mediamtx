@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 
 // Route::get('/', function () {return view('admin');});
 
-Route::get('/.well-known/jwks.json', JwksController::class)->middleware('jwks.ip');
+Route::get('/.well-known/jwks.json', JwksController::class);
 Route::get('/play', PlayerController::class)->middleware('player.access');
 Route::get('/moq', MoqPlayerController::class)->middleware('player.access');
 Route::get('/monitor/play', MonitorPlayerController::class)

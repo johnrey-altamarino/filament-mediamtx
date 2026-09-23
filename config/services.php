@@ -45,7 +45,6 @@ return [
         'api_user' => env('MEDIAMTX_API_USER'),
         'api_pass' => env('MEDIAMTX_API_PASS'),
         'api_timeout' => (int) env('MEDIAMTX_API_TIMEOUT', 3),
-        'allowed_ips' => env('MEDIAMTX_ALLOWED_IPS', ''),
         'stale_seconds' => (int) env('MEDIAMTX_SESSION_STALE_SECONDS', 20),
         'stream_base_url' => env('MEDIAMTX_STREAM_BASE_URL', 'https://stream.jrta.online'),
         'moq_base_url' => env('MEDIAMTX_MOQ_BASE_URL', ''),

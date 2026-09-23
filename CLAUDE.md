@@ -42,7 +42,7 @@ Tests use SQLite in-memory (`DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:`). The
 The core purpose of this app is acting as a **JWT authorization server** for MediaMTX.
 
 - **RS256 keypair** lives at `storage/app/jwt/private.pem` and `storage/app/jwt/public.pem` (paths set via `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH`).
-- **JWKS endpoint** at `GET /.well-known/jwks.json` — MediaMTX polls this to verify JWTs. Protected by `AllowMediamtxOnly` middleware (IP allowlist via `MEDIAMTX_ALLOWED_IPS`).
+- **JWKS endpoint** at `GET /.well-known/jwks.json` — MediaMTX polls this to verify JWTs. Public (no IP allowlist; it only exposes the public key).
 - **Publish tokens**: Long-lived (~10-year) JWTs issued by `MediamtxJwtIssuer`, stored in the DB, copied to stream encoders. Managed via the `PublishTokenResource` Filament resource.
 - **Read tokens**: Short-lived JWTs (default 60s, `JWT_TTL_SECONDS`) issued by `POST /api/read`. Called by embedded players. Gated by IP blocklist + referrer allowlist before issuing.
 
@@ -104,7 +104,6 @@ MEDIAMTX_API_BASE_URL     # MediaMTX management API base URL (default http://127
 MEDIAMTX_API_USER         # Basic auth user for MediaMTX API (optional)
 MEDIAMTX_API_PASS         # Basic auth pass for MediaMTX API (optional)
 MEDIAMTX_API_TIMEOUT      # HTTP timeout in seconds (default 3)
-MEDIAMTX_ALLOWED_IPS      # Comma-separated IPs allowed to access /.well-known/jwks.json
 
 VIEWER_LOG_THROTTLE_SECONDS   # Dedup window for viewer_requests logging (default 10)
 VIEWER_LOG_THROTTLE_MODE      # Fingerprint mode: ip_path_ua | ip_path | ip_path_ref
