@@ -1,6 +1,10 @@
-<div wire:poll.12s="refresh" class="min-h-screen bg-neutral-950 text-neutral-100 p-4">
-    <div class="flex items-center justify-between mb-4">
-        <h1 class="text-lg font-semibold">Multistream Monitor</h1>
+@php($visible = $this->currentTiles())
+{{-- With 1–2 streams on screen, the tiles stretch to fill the viewport instead of using the 16:9 grid --}}
+@php($fill = count($visible) > 0 && count($visible) <= 2 && $this->totalPages() === 1)
+
+<div wire:poll.12s="refresh"
+     class="bg-neutral-950 text-neutral-100 p-2 sm:p-3 {{ $fill ? 'h-dvh flex flex-col' : 'min-h-dvh' }}">
+    <div class="flex items-center justify-end mb-2 shrink-0">
         <div class="flex items-center gap-3">
             <span class="text-sm text-neutral-400">{{ count($tiles) }} active</span>
             <form method="POST" action="{{ route('filament.admin.auth.logout') }}">
@@ -13,21 +17,25 @@
         </div>
     </div>
 
-    @php($visible = $this->currentTiles())
-
     @if (count($visible) === 0)
         <div class="flex items-center justify-center h-[60vh] text-neutral-500">
             No active publishers.
         </div>
     @else
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div @class([
+            'grid gap-2 sm:gap-3',
+            'flex-1 min-h-0 grid-cols-1' => $fill,
+            'portrait:grid-rows-2 landscape:grid-cols-2' => $fill && count($visible) === 2,
+            'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' => ! $fill,
+        ])>
             @foreach ($visible as $tile)
                 <div wire:key="tile-{{ $tile['name'] }}"
                      x-data="{ expanded: false, copied: false, muted: true }"
+                     @keydown.escape.window="expanded = false"
                      :class="expanded
                         ? 'fixed inset-0 z-50 rounded-none border-0'
                         : 'relative rounded-lg border border-neutral-800'"
-                     class="flex flex-col overflow-hidden bg-black">
+                     class="flex flex-col overflow-hidden bg-black {{ $fill ? 'min-h-0' : '' }}">
                     {{-- Back button, only visible when expanded to fullscreen --}}
                     <button type="button" x-show="expanded" x-cloak @click="expanded = false"
                         class="absolute top-3 left-3 z-10 flex items-center gap-1 text-sm px-3 py-1.5 rounded bg-neutral-900/80 hover:bg-neutral-800 backdrop-blur">
@@ -37,7 +45,12 @@
                         Back
                     </button>
 
-                    <div class="bg-black" :class="expanded ? 'flex-1' : 'aspect-video'" wire:ignore>
+                    <div class="relative bg-black {{ $fill ? 'flex-1 min-h-0' : '' }}"
+                         :class="expanded ? 'flex-1 min-h-0' : '{{ $fill ? '' : 'aspect-video' }}'" wire:ignore>
+                        {{-- Click-catcher over the iframe (which would otherwise swallow the click): expands this stream to fill the page --}}
+                        <button type="button" x-show="!expanded" @click="expanded = true"
+                            aria-label="View {{ $tile['name'] }} full page"
+                            class="absolute inset-0 z-[1] cursor-zoom-in"></button>
                         <iframe x-ref="frame"
                             src="{{ route('monitor.play', ['stream' => $tile['name'], 'muted' => 'true', 'controls' => 'false', 'autoplay' => 'true']) }}"
                             class="w-full h-full border-0"
@@ -84,7 +97,7 @@
         </div>
 
         @if ($this->totalPages() > 1)
-            <div class="flex items-center justify-center gap-4 mt-6">
+            <div class="flex items-center justify-center gap-4 mt-4">
                 <button wire:click="prevPage" @disabled($page <= 1)
                     class="px-3 py-1 rounded bg-neutral-800 disabled:opacity-40">Prev</button>
                 <span class="text-sm text-neutral-400">Page {{ $page }} of {{ $this->totalPages() }}</span>
