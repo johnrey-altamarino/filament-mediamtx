@@ -53,3 +53,23 @@ git pull
 npm ci && npm run build
 sudo -u www-data php artisan view:clear
 ```
+
+## Follow-up: overlay bar in the expanded view
+
+**Symptom:** the expanded stream had wide blurred gaps on the left and right. The stream is 16:9, and the space
+left above the bottom bar was about 2:1.
+
+**Fix:** in the expanded view, the bottom bar (name / copy / mute / viewers) now floats over the video
+(`absolute bottom-0`, translucent), so the video gets the full viewport height. The gaps shrink but do not disappear
+entirely. They are what's left of the gap between 16:9 and the screen's aspect ratio. Stretching or cropping would
+remove them, but both options were rejected (distortion / cutting off the top and bottom).
+
+- The bar and the Back button **auto-hide after 3s idle**. Moving the mouse or tapping brings them back. The iframe
+  swallows pointer events, so `expand()` attaches `mousemove`/`touchstart`/`click` listeners to the same-origin
+  player document (the same access the mute toggle already uses).
+- Page scrolling is locked while a stream is expanded (`documentElement.style.overflow = 'hidden'`), so no
+  scrollbar shows beside the stream. Back or Esc restores it.
+- The grid view is unchanged: the bar stays below each tile there.
+
+**Verified** at 1000×526 with a 16:9 fake player: the video spans the full height, the bar is visible after mouse
+movement (opacity 1) and hidden 3s later (opacity 0), and page overflow resets after Esc.

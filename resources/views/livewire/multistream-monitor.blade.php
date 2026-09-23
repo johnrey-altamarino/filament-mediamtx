@@ -30,15 +30,44 @@
         ])>
             @foreach ($visible as $tile)
                 <div wire:key="tile-{{ $tile['name'] }}"
-                     x-data="{ expanded: false, copied: false, muted: true }"
-                     @keydown.escape.window="expanded = false"
+                     x-data="{
+                        expanded: false, copied: false, muted: true, barVisible: true, barTimer: null,
+                        {{-- Expanded view floats the bottom bar over the video; it auto-hides after 3s idle --}}
+                        wake() {
+                            this.barVisible = true;
+                            clearTimeout(this.barTimer);
+                            this.barTimer = setTimeout(() => this.barVisible = false, 3000);
+                        },
+                        expand() {
+                            this.expanded = true;
+                            document.documentElement.style.overflow = 'hidden';
+                            this.wake();
+                            {{-- The iframe swallows mouse/touch events, so listen inside the (same-origin) player document --}}
+                            try {
+                                const doc = this.$refs.frame.contentWindow.document;
+                                if (! doc.__monitorWake) {
+                                    doc.__monitorWake = true;
+                                    ['mousemove', 'touchstart', 'click'].forEach(e =>
+                                        doc.addEventListener(e, () => { if (this.expanded) this.wake() }, { passive: true }));
+                                }
+                            } catch (e) {}
+                        },
+                        collapse() {
+                            this.expanded = false;
+                            document.documentElement.style.overflow = '';
+                            clearTimeout(this.barTimer);
+                            this.barVisible = true;
+                        },
+                     }"
+                     @keydown.escape.window="collapse()"
                      :class="expanded
                         ? 'fixed inset-0 z-50 rounded-none border-0'
                         : 'relative rounded-lg border border-neutral-800'"
                      class="flex flex-col overflow-hidden bg-black {{ $fill ? 'min-h-0' : '' }}">
                     {{-- Back button, only visible when expanded to fullscreen --}}
-                    <button type="button" x-show="expanded" x-cloak @click="expanded = false"
-                        class="absolute top-3 left-3 z-10 flex items-center gap-1 text-sm px-3 py-1.5 rounded bg-neutral-900/80 hover:bg-neutral-800 backdrop-blur">
+                    <button type="button" x-show="expanded" x-cloak @click="collapse()"
+                        :class="barVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+                        class="absolute top-3 left-3 z-10 flex items-center gap-1 text-sm px-3 py-1.5 rounded bg-neutral-900/80 hover:bg-neutral-800 backdrop-blur transition-opacity duration-300">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                         </svg>
@@ -48,7 +77,7 @@
                     <div class="relative bg-black {{ $fill ? 'flex-1 min-h-0' : '' }}"
                          :class="expanded ? 'flex-1 min-h-0' : '{{ $fill ? '' : 'aspect-video' }}'" wire:ignore>
                         {{-- Click-catcher over the iframe (which would otherwise swallow the click): expands this stream to fill the page --}}
-                        <button type="button" x-show="!expanded" @click="expanded = true"
+                        <button type="button" x-show="!expanded" @click="expand()"
                             aria-label="View {{ $tile['name'] }} full page"
                             class="absolute inset-0 z-[1] cursor-zoom-in"></button>
                         <iframe x-ref="frame"
@@ -57,9 +86,13 @@
                             allow="autoplay"></iframe>
                     </div>
 
-                    <div class="flex items-center gap-2 px-3 py-2 bg-neutral-900">
+                    <div @mousemove="expanded && wake()"
+                         :class="expanded
+                            ? 'absolute inset-x-0 bottom-0 z-10 bg-neutral-900/75 backdrop-blur transition-opacity duration-300 ' + (barVisible ? 'opacity-100' : 'opacity-0 pointer-events-none')
+                            : 'bg-neutral-900'"
+                         class="flex items-center gap-2 px-3 py-2">
                         {{-- Path name: click to expand this tile to fill the whole page --}}
-                        <button type="button" @click="expanded = true"
+                        <button type="button" @click="expand()"
                             title="{{ $tile['name'] }}"
                             class="truncate text-sm font-medium text-left px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700">{{ $tile['name'] }}</button>
 
