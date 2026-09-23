@@ -81,7 +81,7 @@
                             aria-label="View {{ $tile['name'] }} full page"
                             class="absolute inset-0 z-[1] cursor-zoom-in"></button>
                         <iframe x-ref="frame"
-                            src="{{ route('monitor.play', ['stream' => $tile['name'], 'muted' => 'true', 'controls' => 'false', 'autoplay' => 'true']) }}"
+                            src="{{ route('monitor.play', ['stream' => $tile['name'], 'muted' => 'true', 'controls' => 'false', 'autoplay' => 'true', 'bg' => '0']) }}"
                             class="w-full h-full border-0"
                             allow="autoplay"></iframe>
                     </div>

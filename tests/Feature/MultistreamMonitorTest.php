@@ -112,4 +112,12 @@ class MultistreamMonitorTest extends TestCase
         $response->assertOk();
         $response->assertSee(route('filament.admin.auth.logout'), escape: false);
     }
+
+    public function test_tile_players_disable_the_blurred_background(): void
+    {
+        $this->fakePaths(1);
+
+        Livewire::test(MultistreamMonitor::class)
+            ->assertSeeHtml('bg=0');
+    }
 }

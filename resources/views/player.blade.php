@@ -257,7 +257,9 @@ if (objectFit === "contain" || objectFit === "cover") videoEl.style.objectFit = 
 
 // "cover" already fills the frame, so the blurred backdrop would never be
 // visible — skip attaching the stream to it and save the extra decode.
-const useBlurBg = objectFit !== "cover";
+// bg=0 opts out too (the multistream monitor, where a blurred second copy
+// per tile costs GPU/decode for every tile on screen).
+const useBlurBg = objectFit !== "cover" && params.get("bg") !== "0";
 bgVideoEl.setAttribute("autoplay", "");
 
 if (!stream) {
